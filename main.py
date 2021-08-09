@@ -47,7 +47,7 @@ class MyNet(nn.Module):
     def forward(self, videos):        
         x = self.i3d(videos.transpose(1, 2))
         x = x.squeeze(2)
-        return self.affine(x)
+        return self.affine(x).squeeze(1)
 
 def train(model, loader):
     model.train()
@@ -67,8 +67,8 @@ def train(model, loader):
             predicts_nomal = model(normal_data)
 
             loss = criterion(
-                predicts_anomaly.squeeze(1),
-                predicts_nomal.squeeze(1),
+                predicts_anomaly,
+                predicts_nomal,
                 model)
 
             optimizer.zero_grad()
@@ -87,7 +87,7 @@ def predict(model, loader):
     with torch.no_grad():
         for idx, (anomaly_data, _) in enumerate(loader):
             anomaly_data = anomaly_data.cuda()
-            predict = model(anomaly_data).squeeze(1)
+            predict = model(anomaly_data)
             print(f"{idx}: {predict.item()}")
 
 
