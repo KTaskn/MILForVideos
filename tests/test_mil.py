@@ -1,5 +1,5 @@
 import torch
-from model import MIL
+from mil import MIL
 
 class TestMIL:
     def test_init(self):

@@ -15,7 +15,7 @@ class TestDataSet:
 
     def test_init(self):
         ds = DataSet()
-        F, W, H, C =16, 448, 448, 3
+        F, W, H, C =16, 224, 224, 3
         a_data, n_data = next(iter(ds))
         assert a_data.shape == torch.Size([F, C, W, H])
         assert n_data.shape == torch.Size([F, C, W, H])
