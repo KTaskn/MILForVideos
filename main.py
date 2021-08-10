@@ -46,7 +46,8 @@ class MyNet(nn.Module):
 
         self.affine = MyAffine()
 
-    def forward(self, batch, n_batch):
+    def forward(self, batch):
+        n_batch = batch.size()[0]
         return torch.stack([
             self._forward(batch[idx_batch])
             for idx_batch in range(n_batch)
@@ -72,8 +73,8 @@ def train(model, loader):
             anomaly_data = anomaly_data.cuda()
             normal_data = normal_data.cuda()
 
-            predicts_anomaly = model(anomaly_data, N_BATCH)
-            predicts_nomal = model(normal_data, N_BATCH)
+            predicts_anomaly = model(anomaly_data)
+            predicts_nomal = model(normal_data)
 
             loss = criterion(
                 predicts_anomaly,
@@ -96,7 +97,7 @@ def predict(model, loader):
     with torch.no_grad():
         for idx, (anomaly_data, _) in enumerate(loader):
             anomaly_data = anomaly_data.cuda()
-            predict = model(anomaly_data, 1)
+            predict = model(anomaly_data)
             print(f"{idx}: {predict.mean().item()}")
 
 
