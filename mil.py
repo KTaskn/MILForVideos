@@ -24,17 +24,17 @@ class MIL(nn.Module):
             + self.lambda3 * weights_norm)
 
     def _term0(self, anomalous, normal):
-        a_max = anomalous.max()
-        n_max = normal.max()
+        a_max = anomalous.max(dim=1)[0]
+        n_max = normal.max(dim=1)[0]
         print("a_max:", a_max)
         print("n_max:", n_max)
-        return torch.tensor([
-                0.0,
-                1.0 - a_max + n_max
-            ]).max()
+        return torch.max(
+                torch.zeros_like(a_max),
+                torch.ones_like(a_max) - a_max + n_max
+            )
         
     def _term1(self, anomalous):
-        return torch.pow(anomalous.diff(), 2.0).sum()
+        return torch.pow(anomalous.diff(dim=1), 2.0).sum(dim=1)
 
     def _term2(self, anomalous):
-        return anomalous.sum()
+        return anomalous.sum(dim=1)

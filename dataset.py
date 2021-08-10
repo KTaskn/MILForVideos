@@ -4,6 +4,7 @@ from PIL import Image
 from torchvision import transforms
 import os
 
+V = 32
 F = 16
 PATH_ANOMALOUS = "/workspace/datasets/Skull"
 PATH_NORMAL = "/workspace/datasets/Upvote"
@@ -27,11 +28,11 @@ class DataSet(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return torch.stack([
-            self.transform(self._open_image(path))
-            for path in self._get_pathlist(PATH_ANOMALOUS, idx * F, F)
+            torch.stack([self.transform(self._open_image(path)) for path in self._get_pathlist(PATH_ANOMALOUS, n, F)])
+            for n in range(idx * F, (idx + V) * F, F)            
         ]), torch.stack([
-            self.transform(self._open_image(path))
-            for path in self._get_pathlist(PATH_NORMAL, idx * F, F)
+            torch.stack([self.transform(self._open_image(path)) for path in self._get_pathlist(PATH_NORMAL, n, F)])
+            for n in range(idx * F, (idx + V) * F, F)
         ])
     
     def _open_image(self, path):
