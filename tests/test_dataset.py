@@ -1,5 +1,5 @@
 import torch
-from dataset import DataSet
+from dataset import DataSet, V, F
 
 class TestDataSet:
     def test_get_pathlist(self):
@@ -15,7 +15,7 @@ class TestDataSet:
 
     def test_init(self):
         ds = DataSet()
-        V, F, W, H, C = 32, 16, 224, 224, 3
+        W, H, C = 224, 224, 3
         a_data, n_data = next(iter(ds))
         assert a_data.shape == torch.Size([V, F, C, W, H])
         assert n_data.shape == torch.Size([V, F, C, W, H])

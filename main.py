@@ -4,12 +4,14 @@ import torch.optim as optim
 from tqdm import tqdm
 from mil import MIL
 from i3d import InceptionI3d
-from dataset import DataSet, F
+from dataset import DataSet, F, V
 
 PRETRAINED_PATH = "./rgb_i3d_pretrained.pt"
-N_BATCH = 30
-N_WORKER = 10
-N_EPOCH = 1000
+MODEL_PATH = "./model.pt"
+
+N_BATCH = 5
+N_WORKER = 5
+N_EPOCH = 100
 
 class MyAffine(nn.Module):
     def __init__(self):
@@ -39,13 +41,20 @@ class MyNet(nn.Module):
         self.i3d.load_state_dict(torch.load(PRETRAINED_PATH))
 
         # パラメータ固定
-        # for param in self.i3d.parameters():
-        #     param.requires_grad = False
+        for param in self.i3d.parameters():
+            param.requires_grad = False
 
         self.affine = MyAffine()
 
-    def forward(self, videos):        
-        x = self.i3d(videos.transpose(1, 2))
+    def forward(self, batch, n_batch):
+        return torch.stack([
+            self._forward(batch[idx_batch])
+            for idx_batch in range(n_batch)
+        ])
+    
+    def _forward(self, videos):
+        videos.transpose_(1, 2)
+        x = self.i3d(videos)
         x = x.squeeze(2)
         return self.affine(x).squeeze(1)
 
@@ -63,13 +72,13 @@ def train(model, loader):
             anomaly_data = anomaly_data.cuda()
             normal_data = normal_data.cuda()
 
-            predicts_anomaly = model(anomaly_data)
-            predicts_nomal = model(normal_data)
+            predicts_anomaly = model(anomaly_data, N_BATCH)
+            predicts_nomal = model(normal_data, N_BATCH)
 
             loss = criterion(
                 predicts_anomaly,
                 predicts_nomal,
-                model)
+                model.affine)
 
             optimizer.zero_grad()
             loss.backward()
@@ -87,12 +96,14 @@ def predict(model, loader):
     with torch.no_grad():
         for idx, (anomaly_data, _) in enumerate(loader):
             anomaly_data = anomaly_data.cuda()
-            predict = model(anomaly_data)
-            print(f"{idx}: {predict.item()}")
+            predict = model(anomaly_data, 1)
+            print(f"{idx}: {predict.mean().item()}")
 
 
 if __name__ == "__main__":
     model = MyNet()
+    if MODEL_PATH:
+        model.load_state_dict(torch.load(MODEL_PATH))
     model.cuda()
 
     dataset = DataSet()

@@ -23,8 +23,7 @@ class DataSet(torch.utils.data.Dataset):
         )) - F
 
     def __len__(self):
-        # return self.length
-        return int(6000 / F)
+        return int(self.length / F) - V - 1
 
     def __getitem__(self, idx):
         return torch.stack([

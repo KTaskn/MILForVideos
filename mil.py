@@ -20,8 +20,7 @@ class MIL(nn.Module):
         return (
             term0
             + self.lambda1 * term1 / batch_size
-            + self.lambda2 * term2 / batch_size
-            + self.lambda3 * weights_norm)
+            + self.lambda2 * term2 / batch_size).mean() + self.lambda3 * weights_norm
 
     def _term0(self, anomalous, normal):
         a_max = anomalous.max(dim=1)[0]
