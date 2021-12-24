@@ -1,21 +1,16 @@
-import torch
-from dataset import DataSet, V, F
+from dataset import DataSet
 
-class TestDataSet:
-    def test_get_pathlist(self):
-        ds = DataSet()
-        assert ds._get_pathlist(
-            "/workspace/datasets/Skull",
-            9998, 3
-        ) == [
-            "/workspace/datasets/Skull/image_9998.jpg",
-            "/workspace/datasets/Skull/image_9999.jpg",
-            "/workspace/datasets/Skull/image_10000.jpg",
-        ]
-
-    def test_init(self):
-        ds = DataSet()
-        W, H, C = 224, 224, 3
-        a_data, n_data = next(iter(ds))
-        assert a_data.shape == torch.Size([V, F, C, W, H])
-        assert n_data.shape == torch.Size([V, F, C, W, H])
+def test_loader():
+    images = list(range(100))
+    ds = DataSet(images, F=5, func_extract=lambda x: x)
+    assert ds.__getitem__(0) == [0, 1, 2, 3, 4]
+    assert ds.__getitem__(1) == [5, 6, 7, 8, 9]
+    assert ds.__getitem__(19) == [95, 96, 97, 98, 99]
+    
+    # 端数の場合
+    images = list(range(104))
+    ds = DataSet(images, F=5, func_extract=lambda x: x)
+    assert ds.__getitem__(0) == [0, 1, 2, 3, 4]
+    assert ds.__getitem__(1) == [5, 6, 7, 8, 9]
+    assert ds.__getitem__(19) == [95, 96, 97, 98, 99]
+    assert ds.__getitem__(20) == [99, 100, 101, 102, 103]
