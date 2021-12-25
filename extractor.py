@@ -13,10 +13,31 @@ class MyNet(nn.Module):
         self.i3d = InceptionI3d()
         self.i3d.load_state_dict(torch.load(PRETRAINED_PATH))
 
-        # パラメータ固定
-        for param in self.i3d.parameters():
-            param.requires_grad = False
-
     def forward(self, video):
         video = video.transpose_(1, 2)
-        return self.i3d(video)
+        return self.i3d(video).squeeze(2)
+
+def _get_net(net):    
+    if net:
+        return net
+    else:
+        return MyNet()
+    
+N_BATCHES = 5
+N_WORKERS = 5
+    
+def extract(dataset, net = None, n_batches=N_BATCHES, n_workers=N_WORKERS):
+    net = _get_net(net)    
+    loader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=n_batches,
+        shuffle=False,
+        num_workers=n_workers)
+
+    ret = []
+    with tqdm(total=len(loader), unit="batch") as pbar:
+        for videos in loader:
+            outputs = net(videos)
+            pbar.update(1)
+            ret.append(outputs)
+    return torch.cat(ret)
