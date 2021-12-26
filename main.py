@@ -7,12 +7,9 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 import argparse
 
-PRETRAINED_PATH = "./rgb_i3d_pretrained.pt"
-MODEL_PATH = "./model.pt"
-
 N_BATCH = 5
 N_WORKER = 5
-N_EPOCH = 20
+N_EPOCH = 100
 
 V = 32
 
@@ -85,7 +82,8 @@ def train(model, loader):
 
             pbar.set_postfix({"loss":running_loss})
             pbar.update(1)
-
+    return model
+    
 def predict(model, features, labels):
     model.eval()
     with torch.no_grad():
@@ -123,4 +121,4 @@ if __name__ == "__main__":
 
     for epoch in range(N_EPOCH):
         predict(model, dict_anomalous["features"], dict_anomalous["labels"])
-        train(model, trainloader)
+        model = train(model, trainloader)
