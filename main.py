@@ -53,7 +53,9 @@ class DataSet(torch.utils.data.Dataset):
         )
     
 
-def train(model, loader):
+def train(model, loader, gpu=True):
+    model = model.cuda() if gpu else model
+    
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
     criterion = MIL()
 
@@ -62,8 +64,8 @@ def train(model, loader):
     model.train()
     with tqdm(total=len(loader), unit="batch") as pbar:
         for features_normal, features_anomalous, _, _ in loader:
-            features_anomalous = features_anomalous.cuda()
-            features_normal = features_normal.cuda()
+            features_anomalous = features_anomalous.cuda() if gpu else features_anomalous
+            features_normal = features_normal.cuda() if gpu else features_normal
 
             predicts_anomalous = model(features_anomalous)
             predicts_normal = model(features_normal)
@@ -83,28 +85,33 @@ def train(model, loader):
 
             pbar.set_postfix({"loss":running_loss})
             pbar.update(1)
-    return model
+    return model.cpu() if gpu else model
     
-def evaluate(model, features, labels):
+def evaluate(model, features, labels, gpu=True):
+    model = model.cuda() if gpu else model
     model.eval()
     with torch.no_grad():
-        features = features.cuda()
-        predicts = model(features).cpu().numpy()
-        labels = labels.cpu().numpy()
+        features = features.cuda() if gpu else features
+        predicts = model(features)
+        predicts = predicts.cpu().numpy() if gpu else predicts.numpy()
+        labels = labels.cpu().numpy() if gpu else labels.numpy()
     
     return roc_auc_score(labels, predicts)
 
 
 if __name__ == "__main__":    
     parser = argparse.ArgumentParser()
-    parser.add_argument("normal_path", help="", type=str)
-    parser.add_argument("anomalous_path", help="", type=str)
+    parser.add_argument("normal_path", help="Normal data path", type=str)
+    parser.add_argument("anomalous_path", help="Anomaly data path", type=str)
+    parser.add_argument("--gpu", action='store_true', help="Use GPU")
     
-    args = parser.parse_args()
+    args = parser.parse_args()    
+    print(f"normal_path: {args.normal_path}")
+    print(f"anomalous_path: {args.anomalous_path}")
+    print(f"gpu: {args.gpu}")
     
-    model = MyAffine()
-    model = model.cuda()
     
+    model = MyAffine()    
     dict_normal = torch.load(args.normal_path)
     dict_anomalous = torch.load(args.anomalous_path)
 
@@ -121,7 +128,9 @@ if __name__ == "__main__":
         num_workers=N_WORKER)
 
     for epoch in range(N_EPOCH):
-        # auc = evaluate(model, dict_anomalous["features"], dict_anomalous["labels"])
+        auc = evaluate(model, dict_anomalous["features"], dict_anomalous["labels"], gpu=args.gpu)  
+        auc = auc if auc > 0.5 else 1.0 - auc
+        print(f"AUC score (anomalous): {auc}")        
         
         auc = evaluate(model, torch.cat([            
             dict_normal["features"],
@@ -129,7 +138,7 @@ if __name__ == "__main__":
         ]), torch.cat([            
             dict_normal["labels"],
             dict_anomalous["labels"]
-        ]))
+        ]), gpu=args.gpu)
         auc = auc if auc > 0.5 else 1.0 - auc
-        print(f"AUC score: {auc}")        
-        model = train(model, trainloader)
+        print(f"AUC score (normal & anomalous): {auc}")      
+        model = train(model, trainloader, gpu=args.gpu)

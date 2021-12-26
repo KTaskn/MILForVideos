@@ -48,7 +48,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("pathlist", help="Path to the dataset", type=str)
     parser.add_argument("output_path", help="Path to the output file", type=str)
-    parser.add_argument("--gpu", help="True if you want to use GPU", type=bool, default=True)
+    parser.add_argument("--gpu", action='store_true', help="Use GPU")
     
     args = parser.parse_args()
     print(f"pathlist: {args.pathlist}")
