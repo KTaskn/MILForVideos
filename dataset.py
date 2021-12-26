@@ -31,7 +31,7 @@ class DataSet(torch.utils.data.Dataset):
         if start <= self.paths_image.__len__() - self.F:
             sub = self.paths_image[start:end]
         else:
-            sub = self.paths_image[self.paths_image.__len__() - 5:self.paths_image.__len__()]
+            sub = self.paths_image[self.paths_image.__len__() - self.F:self.paths_image.__len__()]
         return self.func_extract(sub)
     
     def _func_extract(self, sub_paths_image):
