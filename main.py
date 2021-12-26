@@ -3,8 +3,9 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 from mil import MIL
-from i3d import InceptionI3d
-from dataset import DataSet, F, V
+import numpy as np
+from sklearn.metrics import roc_auc_score
+import argparse
 
 PRETRAINED_PATH = "./rgb_i3d_pretrained.pt"
 MODEL_PATH = "./model.pt"
@@ -12,6 +13,7 @@ MODEL_PATH = "./model.pt"
 N_BATCH = 5
 N_WORKER = 5
 N_EPOCH = 100
+
 
 class MyAffine(nn.Module):
     def __init__(self):
@@ -23,8 +25,6 @@ class MyAffine(nn.Module):
         self.layer2 = nn.Linear(256, 128)
         self.layer3 = nn.Linear(128, 1)
 
-        # self.norm1 = nn.LayerNorm(256)
-        # self.norm2 = nn.LayerNorm(128)
         self.dropout1 = nn.Dropout(0.6)
         self.dropout2 = nn.Dropout(0.6)
 
@@ -32,61 +32,56 @@ class MyAffine(nn.Module):
         x = self.dropout1(self.activation(self.layer1(x)))
         x = self.dropout2(self.activation(self.layer2(x)))
         return self.sigmoid(self.layer3(x))
-
-
-class MyNet(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.i3d = InceptionI3d()
-        self.i3d.load_state_dict(torch.load(PRETRAINED_PATH))
-
-        # パラメータ固定
-        for param in self.i3d.parameters():
-            param.requires_grad = False
-
-        self.affine = MyAffine()
-
-    def forward(self, batch):
-        n_batch = batch.size()[0]
-        return torch.stack([
-            self._forward(batch[idx_batch])
-            for idx_batch in range(n_batch)
-        ])
     
-    def _forward(self, videos):
-        videos.transpose_(1, 2)
-        x = self.i3d(videos)
-        x = x.squeeze(2)
-        return self.affine(x).squeeze(1)
+class DataSet(torch.utils.data.Dataset):
+    def __init__(self, feature_normal, feature_anomalous, label_normal, label_anomalous):
+        print(feature_normal.size(), feature_anomalous.size(), label_normal.size(), label_anomalous.size())
+        assert feature_normal.size(0) == label_normal.size(0)
+        assert feature_anomalous.size(0) == label_anomalous.size(0)
+        assert feature_normal.size(0) == feature_anomalous.size(0)
+        self.feature_normal = feature_normal
+        self.feature_anomalous = feature_anomalous
+        self.label_normal = label_normal
+        self.label_anomalous = label_anomalous
+
+    def __len__(self):
+        return self.feature_normal.size(0)
+
+    def __getitem__(self, idx):
+        return (            
+            self.feature_normal[idx],
+            self.feature_anomalous[idx],
+            self.label_normal[idx],
+            self.label_anomalous[idx],
+        )
+    
 
 def train(model, loader):
-    model.train()
-
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
-    # optimizer = optim.Adadelta(model.parameters(), lr=0.01, eps=1e-8)
     criterion = MIL()
 
     loss_sum = 0
     total = 0
+    model.train()
     with tqdm(total=len(loader), unit="batch") as pbar:
-        for anomaly_data, normal_data in loader:
-            anomaly_data = anomaly_data.cuda()
-            normal_data = normal_data.cuda()
+        for features_normal, features_anomalous, _, _ in loader:
+            features_anomalous = features_anomalous.cuda()
+            features_normal = features_normal.cuda()
 
-            predicts_anomaly = model(anomaly_data)
-            predicts_nomal = model(normal_data)
+            predicts_anomalous = model(features_anomalous)
+            predicts_normal = model(features_normal)
 
             loss = criterion(
-                predicts_anomaly,
-                predicts_nomal,
-                model.affine)
+                predicts_anomalous,
+                predicts_normal,
+                model)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            loss_sum += loss.item() * anomaly_data.size(0) 
-            total += anomaly_data.size(0)
+            loss_sum += loss.item() * features_anomalous.size(0) 
+            total += features_anomalous.size(0)
             running_loss = loss_sum / total
 
             pbar.set_postfix({"loss":running_loss})
@@ -95,19 +90,34 @@ def train(model, loader):
 def predict(model, loader):
     model.eval()
     with torch.no_grad():
-        for idx, (anomaly_data, _) in enumerate(loader):
-            anomaly_data = anomaly_data.cuda()
-            predict = model(anomaly_data)
-            print(f"{idx}: {predict.mean().item()}")
+        Y = []
+        Y_dash = []
+        for _, features, _, labels in loader:
+            features = features.cuda()
+            predicts = model(features)
+            
+            Y.append(labels.detach().numpy())
+            Y_dash.append(predicts.detach().numpy())
+        
+    Y = np.vstack(Y)
+    Y_dash = np.vstack(Y_dash)
+    print(f"roc: {roc_auc_score(Y, Y_dash)}")
 
 
-if __name__ == "__main__":
-    model = MyNet()
-    if MODEL_PATH:
-        model.load_state_dict(torch.load(MODEL_PATH))
+if __name__ == "__main__":    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("normal_path", help="", type=str)
+    parser.add_argument("anomalous_path", help="", type=str)
+    
+    args = parser.parse_args()
+    
+    model = MyAffine()
     model.cuda()
+    
+    dict_normal = torch.load(args.normal_path)
+    dict_anomalous = torch.load(args.anomalous_path)
 
-    dataset = DataSet()
+    dataset = DataSet(dict_normal["features"], dict_anomalous["features"], dict_normal["labels"], dict_anomalous["labels"])
     trainloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=N_BATCH,
@@ -121,5 +131,4 @@ if __name__ == "__main__":
 
     for epoch in range(N_EPOCH):
         train(model, trainloader)
-        torch.save(model.state_dict(), f'model.pt')
         predict(model, testloader)
