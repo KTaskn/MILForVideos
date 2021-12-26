@@ -25,8 +25,6 @@ class MIL(nn.Module):
     def _term0(self, anomalous, normal):
         a_max = anomalous.max(dim=1)[0]
         n_max = normal.max(dim=1)[0]
-        print("a_max:", a_max)
-        print("n_max:", n_max)
         return torch.max(
                 torch.zeros_like(a_max),
                 torch.ones_like(a_max) - a_max + n_max
