@@ -1,3 +1,4 @@
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -91,7 +92,7 @@ def predict(model, features, labels):
         predicts = model(features).cpu().numpy()
         labels = labels.cpu().numpy()
     
-    print(f"roc: {roc_auc_score(labels, predicts)}")
+    return roc_auc_score(labels, predicts)
 
 
 if __name__ == "__main__":    
@@ -120,5 +121,7 @@ if __name__ == "__main__":
         num_workers=N_WORKER)
 
     for epoch in range(N_EPOCH):
-        predict(model, dict_anomalous["features"], dict_anomalous["labels"])
+        roc = predict(model, dict_anomalous["features"], dict_anomalous["labels"])
+        roc = roc if roc > 0.5 else 1.0 - roc
+        print(f"roc: {roc}")        
         model = train(model, trainloader)
