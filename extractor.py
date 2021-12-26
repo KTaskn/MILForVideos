@@ -23,6 +23,7 @@ class MyNet(nn.Module):
 
 N_BATCHES = 5
 N_WORKERS = 5
+CUDA = True
     
 def extract(dataset, net, n_batches=N_BATCHES, n_workers=N_WORKERS, cuda=False):
     net = net.cuda() if cuda else net
@@ -36,7 +37,9 @@ def extract(dataset, net, n_batches=N_BATCHES, n_workers=N_WORKERS, cuda=False):
     with tqdm(total=len(loader), unit="batch") as pbar:
         for videos in loader:
             videos = videos.cuda() if cuda else videos
-            outputs.append(net(videos))
+            predict = net(videos)
+            predict = predict.cpu() if cuda else predict
+            outputs.append(predict)
             pbar.update(1)
     return torch.cat(outputs)
 
@@ -62,13 +65,14 @@ if __name__ == "__main__":
     ds = DataSet(paths_image, F=F)
     net = MyNet()
     with torch.no_grad():
-        outputs = extract(ds, net, cuda=True)
+        outputs = extract(ds, net, cuda=CUDA)
         
     ds_labels = DataSet(labels, F=F, func_extract=lambda X: 1 if sum(X) > 0 else 0)
     labels = torch.tensor([
         ds_labels.__getitem__(idx)
         for idx in range(ds_labels.__len__())
     ])
+    
     
     print(f"features_size: {outputs.size()}")
     print(f"labels_size: {labels.size()}")

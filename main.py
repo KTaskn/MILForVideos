@@ -12,7 +12,9 @@ MODEL_PATH = "./model.pt"
 
 N_BATCH = 5
 N_WORKER = 5
-N_EPOCH = 100
+N_EPOCH = 30
+
+V = 32
 
 
 class MyAffine(nn.Module):
@@ -35,24 +37,21 @@ class MyAffine(nn.Module):
     
 class DataSet(torch.utils.data.Dataset):
     def __init__(self, feature_normal, feature_anomalous, label_normal, label_anomalous):
-        print(feature_normal.size(), feature_anomalous.size(), label_normal.size(), label_anomalous.size())
-        assert feature_normal.size(0) == label_normal.size(0)
-        assert feature_anomalous.size(0) == label_anomalous.size(0)
-        assert feature_normal.size(0) == feature_anomalous.size(0)
         self.feature_normal = feature_normal
         self.feature_anomalous = feature_anomalous
         self.label_normal = label_normal
         self.label_anomalous = label_anomalous
 
     def __len__(self):
-        return self.feature_normal.size(0)
+        length = self.feature_normal.size(0) if self.feature_anomalous.size(0) > self.feature_normal.size(0) else self.feature_anomalous.size(0)
+        return length - V + 1
 
     def __getitem__(self, idx):
         return (            
-            self.feature_normal[idx],
-            self.feature_anomalous[idx],
-            self.label_normal[idx],
-            self.label_anomalous[idx],
+            torch.stack([self.feature_normal[idx + num] for num in range(V)]),
+            torch.stack([self.feature_anomalous[idx + num] for num in range(V)]),
+            torch.stack([self.label_normal[idx + num] for num in range(V)]),
+            torch.stack([self.label_anomalous[idx + num] for num in range(V)]),
         )
     
 
@@ -87,21 +86,14 @@ def train(model, loader):
             pbar.set_postfix({"loss":running_loss})
             pbar.update(1)
 
-def predict(model, loader):
+def predict(model, features, labels):
     model.eval()
     with torch.no_grad():
-        Y = []
-        Y_dash = []
-        for _, features, _, labels in loader:
-            features = features.cuda()
-            predicts = model(features)
-            
-            Y.append(labels.detach().numpy())
-            Y_dash.append(predicts.detach().numpy())
-        
-    Y = np.vstack(Y)
-    Y_dash = np.vstack(Y_dash)
-    print(f"roc: {roc_auc_score(Y, Y_dash)}")
+        features = features.cuda()
+        predicts = model(features).cpu().numpy()
+        labels = labels.cpu().numpy()
+    
+    print(f"roc: {roc_auc_score(labels, predicts)}")
 
 
 if __name__ == "__main__":    
@@ -112,7 +104,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     model = MyAffine()
-    model.cuda()
+    model = model.cuda()
     
     dict_normal = torch.load(args.normal_path)
     dict_anomalous = torch.load(args.anomalous_path)
@@ -130,5 +122,6 @@ if __name__ == "__main__":
         num_workers=N_WORKER)
 
     for epoch in range(N_EPOCH):
+        if epoch % 5 == 0:
+            predict(model, dict_anomalous["features"], dict_anomalous["labels"])
         train(model, trainloader)
-        predict(model, testloader)
