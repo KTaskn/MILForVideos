@@ -1,3 +1,4 @@
+import logging
 from glob import glob
 import torch
 from PIL import Image
@@ -40,4 +41,8 @@ class DataSet(torch.utils.data.Dataset):
         ])
     
     def _open_image(self, path):
-        return Image.open(path).convert("RGB")
+        try:
+            return Image.open(path).convert("RGB")
+        except Exception as e:
+            logging.error(path)
+            raise e
