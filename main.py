@@ -121,15 +121,15 @@ if __name__ == "__main__":
         num_workers=N_WORKER)
 
     for epoch in range(N_EPOCH):
-        # roc = evaluate(model, dict_anomalous["features"], dict_anomalous["labels"])
+        # auc = evaluate(model, dict_anomalous["features"], dict_anomalous["labels"])
         
-        roc = evaluate(model, torch.cat([            
+        auc = evaluate(model, torch.cat([            
             dict_normal["features"],
             dict_anomalous["features"]
         ]), torch.cat([            
             dict_normal["labels"],
             dict_anomalous["labels"]
         ]))
-        roc = roc if roc > 0.5 else 1.0 - roc
-        print(f"roc: {roc}")        
+        auc = auc if auc > 0.5 else 1.0 - auc
+        print(f"AUC score: {auc}")        
         model = train(model, trainloader)
