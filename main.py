@@ -12,7 +12,7 @@ MODEL_PATH = "./model.pt"
 
 N_BATCH = 5
 N_WORKER = 5
-N_EPOCH = 30
+N_EPOCH = 20
 
 V = 32
 
@@ -122,6 +122,5 @@ if __name__ == "__main__":
         num_workers=N_WORKER)
 
     for epoch in range(N_EPOCH):
-        if epoch % 5 == 0:
-            predict(model, dict_anomalous["features"], dict_anomalous["labels"])
+        predict(model, dict_anomalous["features"], dict_anomalous["labels"])
         train(model, trainloader)
