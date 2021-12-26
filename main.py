@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 import argparse
 
-N_BATCH = 5
+N_BATCH = 2
 N_WORKER = 5
 N_EPOCH = 100
 
@@ -85,7 +85,7 @@ def train(model, loader):
             pbar.update(1)
     return model
     
-def predict(model, features, labels):
+def evaluate(model, features, labels):
     model.eval()
     with torch.no_grad():
         features = features.cuda()
@@ -121,7 +121,15 @@ if __name__ == "__main__":
         num_workers=N_WORKER)
 
     for epoch in range(N_EPOCH):
-        roc = predict(model, dict_anomalous["features"], dict_anomalous["labels"])
+        # roc = evaluate(model, dict_anomalous["features"], dict_anomalous["labels"])
+        
+        roc = evaluate(model, torch.cat([            
+            dict_normal["features"],
+            dict_anomalous["features"]
+        ]), torch.cat([            
+            dict_normal["labels"],
+            dict_anomalous["labels"]
+        ]))
         roc = roc if roc > 0.5 else 1.0 - roc
         print(f"roc: {roc}")        
         model = train(model, trainloader)
