@@ -1,4 +1,4 @@
-# Multiple Instance Learning (MIL)
+# Multiple Instance Learning (MIL) for videos
 ## About
 This program is an unofficial implementation of this paper.
 
@@ -48,3 +48,8 @@ $ python main.py normal.pt anomalous.pt
 100%|██████| 48/48 [00:00<00:00, 167.17batch/s, loss=1.01]
 AUC score: 0.629
 ```
+
+## Environment
+You can use the docker image I created.
+
+* [jupyter-pytorch-dockercontainer](https://github.com/KTaskn/jupyter-pytorch-dockercontainer)
