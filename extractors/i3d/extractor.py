@@ -1,12 +1,8 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from tqdm import tqdm
-from mil import MIL
 from i3d import InceptionI3d
-from glob import glob
 from dataset import DataSet
-import sys
 import argparse
 
 PRETRAINED_PATH = "./rgb_i3d_pretrained.pt"
