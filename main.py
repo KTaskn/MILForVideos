@@ -41,15 +41,14 @@ class DataSet(torch.utils.data.Dataset):
         self.label_anomalous = label_anomalous
 
     def __len__(self):
-        length = self.feature_normal.size(0) if self.feature_anomalous.size(0) > self.feature_normal.size(0) else self.feature_anomalous.size(0)
-        return length - V + 1
+        return self.feature_anomalous.size(0) - V + 1
 
     def __getitem__(self, idx):
-        
+        normal_idx = np.random.randint(0, self.feature_normal.size(0) - V + 1)
         return (            
-            torch.stack([self.feature_normal[idx + num] for num in range(V)]),
+            torch.stack([self.feature_normal[normal_idx + num] for num in range(V)]),
             torch.stack([self.feature_anomalous[idx + num] for num in range(V)]),
-            torch.stack([self.label_normal[idx + num] for num in range(V)]),
+            torch.stack([self.label_normal[normal_idx + num] for num in range(V)]),
             torch.stack([self.label_anomalous[idx + num] for num in range(V)]),
         )
     
