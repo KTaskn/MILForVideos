@@ -123,11 +123,6 @@ if __name__ == "__main__":
         batch_size=N_BATCH,
         shuffle=True,
         num_workers=N_WORKER)
-    testloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=1,
-        shuffle=False,
-        num_workers=N_WORKER)
 
     for epoch in range(N_EPOCH):
         auc = evaluate(model, dict_anomalous["features"], dict_anomalous["labels"], gpu=args.gpu)  
