@@ -66,7 +66,7 @@ if __name__ == "__main__":
     # You can change the model here
     net = MyNet()
     with torch.no_grad():
-        outputs = extract(ds, net, cuda=args.cuda)
+        outputs = extract(ds, net, cuda=args.gpu)
         
     ds_labels = DataSet(labels, F=F, func_extract=lambda X: 1 if sum(X) > 0 else 0)
     labels = torch.tensor([

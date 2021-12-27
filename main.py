@@ -16,12 +16,12 @@ V = 32
 
 
 class MyAffine(nn.Module):
-    def __init__(self):
+    def __init__(self, input_size):
         super().__init__()
         # 学習モデル
         self.activation = nn.GELU()
         self.sigmoid = nn.Sigmoid()
-        self.layer1 = nn.Linear(1024, 256)
+        self.layer1 = nn.Linear(input_size, 256)
         self.layer2 = nn.Linear(256, 128)
         self.layer3 = nn.Linear(128, 1)
 
@@ -45,6 +45,7 @@ class DataSet(torch.utils.data.Dataset):
         return length - V + 1
 
     def __getitem__(self, idx):
+        
         return (            
             torch.stack([self.feature_normal[idx + num] for num in range(V)]),
             torch.stack([self.feature_anomalous[idx + num] for num in range(V)]),
@@ -111,9 +112,11 @@ if __name__ == "__main__":
     print(f"gpu: {args.gpu}")
     
     
-    model = MyAffine()    
     dict_normal = torch.load(args.normal_path)
     dict_anomalous = torch.load(args.anomalous_path)
+    
+    # Fit size of feature
+    model = MyAffine(input_size=dict_normal["features"].size(1))
 
     dataset = DataSet(dict_normal["features"], dict_anomalous["features"], dict_normal["labels"], dict_anomalous["labels"])
     trainloader = torch.utils.data.DataLoader(

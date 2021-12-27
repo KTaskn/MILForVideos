@@ -23,7 +23,7 @@ class DataSet(torch.utils.data.Dataset):
             self.func_extract = self._func_extract
 
     def __len__(self):
-        return math.ceil(self.paths_image.__len__() / self.F)
+        return self.paths_image.__len__()
 
     def __getitem__(self, idx):
         return self.func_extract(self.paths_image[idx])
