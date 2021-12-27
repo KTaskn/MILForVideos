@@ -6,8 +6,8 @@ from dataset import DataSet
 import argparse
 
 PRETRAINED_PATH = "./rgb_i3d_pretrained.pt"
-N_BATCHES = 5
-N_WORKERS = 5
+N_BATCHES = 100
+N_WORKERS = 10
 
 # Number of frames per feature
 F = 16

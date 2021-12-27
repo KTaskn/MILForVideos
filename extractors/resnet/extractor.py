@@ -5,8 +5,8 @@ from dataset import DataSet
 import argparse
 
 RESNET_PRETRAINED = "./model_best.pth.tar"
-N_BATCHES = 5
-N_WORKERS = 5
+N_BATCHES = 1500
+N_WORKERS = 10
 
 class MyNet(nn.Module):
     def __init__(self):
