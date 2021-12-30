@@ -67,6 +67,8 @@ if __name__ == "__main__":
         ds_labels.__getitem__(idx)
         for idx in range(ds_labels.__len__())
     ])
+    
+    outputs = outputs.unsqueeze(1)
         
     print(f"features_size: {outputs.size()}")
     print(f"labels_size: {labels.size()}")
