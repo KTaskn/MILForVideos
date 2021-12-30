@@ -2,7 +2,6 @@ import logging
 import torch
 from PIL import Image
 from torchvision import transforms
-import os
 import math
 
 class DataSet(torch.utils.data.Dataset):

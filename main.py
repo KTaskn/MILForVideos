@@ -8,20 +8,20 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 import argparse
 
-N_BATCH = 2
+N_BATCH = 100
 N_WORKER = 5
-N_EPOCH = 100
+N_EPOCH = 20
 
 V = 32
 
 
 class MyAffine(nn.Module):
-    def __init__(self):
+    def __init__(self, input_size):
         super().__init__()
         # 学習モデル
         self.activation = nn.GELU()
         self.sigmoid = nn.Sigmoid()
-        self.layer1 = nn.Linear(1024, 256)
+        self.layer1 = nn.Linear(input_size, 256)
         self.layer2 = nn.Linear(256, 128)
         self.layer3 = nn.Linear(128, 1)
 
@@ -41,14 +41,14 @@ class DataSet(torch.utils.data.Dataset):
         self.label_anomalous = label_anomalous
 
     def __len__(self):
-        length = self.feature_normal.size(0) if self.feature_anomalous.size(0) > self.feature_normal.size(0) else self.feature_anomalous.size(0)
-        return length - V + 1
+        return self.feature_anomalous.size(0) - V + 1
 
     def __getitem__(self, idx):
+        normal_idx = np.random.randint(0, self.feature_normal.size(0) - V + 1)
         return (            
-            torch.stack([self.feature_normal[idx + num] for num in range(V)]),
+            torch.stack([self.feature_normal[normal_idx + num] for num in range(V)]),
             torch.stack([self.feature_anomalous[idx + num] for num in range(V)]),
-            torch.stack([self.label_normal[idx + num] for num in range(V)]),
+            torch.stack([self.label_normal[normal_idx + num] for num in range(V)]),
             torch.stack([self.label_anomalous[idx + num] for num in range(V)]),
         )
     
@@ -111,20 +111,17 @@ if __name__ == "__main__":
     print(f"gpu: {args.gpu}")
     
     
-    model = MyAffine()    
     dict_normal = torch.load(args.normal_path)
     dict_anomalous = torch.load(args.anomalous_path)
+    
+    # Fit size of feature
+    model = MyAffine(input_size=dict_normal["features"].size(1))
 
     dataset = DataSet(dict_normal["features"], dict_anomalous["features"], dict_normal["labels"], dict_anomalous["labels"])
     trainloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=N_BATCH,
         shuffle=True,
-        num_workers=N_WORKER)
-    testloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=1,
-        shuffle=False,
         num_workers=N_WORKER)
 
     for epoch in range(N_EPOCH):
