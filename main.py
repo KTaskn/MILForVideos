@@ -17,6 +17,7 @@ V = 32
 
 class MyAffine(nn.Module):
     def __init__(self, input_size):
+        print(f"input_size: {input_size}")
         super().__init__()
         # 学習モデル
         self.activation = nn.GELU()
@@ -67,13 +68,15 @@ def train(model, loader, gpu=True):
             features_anomalous = features_anomalous.cuda() if gpu else features_anomalous
             features_normal = features_normal.cuda() if gpu else features_normal
 
-            predicts_anomalous = model(features_anomalous)
-            predicts_normal = model(features_normal)
+            loss = 0.0
+            for idx in range(features_anomalous.size(1)):
+                predicts_anomalous = model(features_anomalous[:, idx])
+                predicts_normal = model(features_normal[:, idx])
 
-            loss = criterion(
-                predicts_anomalous,
-                predicts_normal,
-                model)
+                loss += criterion(
+                    predicts_anomalous,
+                    predicts_normal,
+                    model)
 
             optimizer.zero_grad()
             loss.backward()
@@ -92,9 +95,10 @@ def evaluate(model, features, labels, gpu=True):
     model.eval()
     with torch.no_grad():
         features = features.cuda() if gpu else features
-        predicts = model(features)
+        predicts = torch.stack([model(features[:, idx]) for idx in range(features.size(1))])
         predicts = predicts.cpu().numpy() if gpu else predicts.numpy()
         labels = labels.cpu().numpy() if gpu else labels.numpy()
+    predicts = predicts.max(axis=0)
     
     return roc_auc_score(labels, predicts)
 
@@ -115,7 +119,7 @@ if __name__ == "__main__":
     dict_anomalous = torch.load(args.anomalous_path)
     
     # Fit size of feature
-    model = MyAffine(input_size=dict_normal["features"].size(1))
+    model = MyAffine(input_size=dict_normal["features"].size(-1))
 
     dataset = DataSet(dict_normal["features"], dict_anomalous["features"], dict_normal["labels"], dict_anomalous["labels"])
     trainloader = torch.utils.data.DataLoader(
