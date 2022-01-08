@@ -5,8 +5,9 @@ from torchvision import transforms
 import math
 
 class DataSet(torch.utils.data.Dataset):
-    def __init__(self, paths_image, F=16, func_extract=None):
+    def __init__(self, paths_image, labels, F=16, func_extract=None):
         self.paths_image = paths_image
+        self.labels = labels
         self.F = F
         
         # Function to transform images into features
@@ -22,6 +23,8 @@ class DataSet(torch.utils.data.Dataset):
             self.func_extract = func_extract
         else:
             self.func_extract = self._func_extract
+        
+        self.func_label = lambda X: 1 if sum(X) > 0 else 0
 
     def __len__(self):
         return math.ceil(self.paths_image.__len__() / self.F)
@@ -30,12 +33,14 @@ class DataSet(torch.utils.data.Dataset):
         start = idx * self.F
         end = idx * self.F + self.F
         
-        if start <= self.paths_image.__len__() - self.F:
-            sub = self.paths_image[start:end]
-        else:
+        if start > self.paths_image.__len__() - self.F:
             # Count from the end and match if the number is not divisible.
-            sub = self.paths_image[self.paths_image.__len__() - self.F:self.paths_image.__len__()]
-        return self.func_extract(sub)
+            start = self.paths_image.__len__() - self.F
+            end = self.paths_image.__len__()
+        return (
+            self.func_extract(self.paths_image[start:end]),
+            self.func_label(self.labels[start:end])
+        )
     
     def _func_extract(self, sub_paths_image):
         return torch.stack([

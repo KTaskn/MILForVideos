@@ -5,8 +5,9 @@ from torchvision import transforms
 import math
 
 class DataSet(torch.utils.data.Dataset):
-    def __init__(self, paths_image, func_extract=None):
+    def __init__(self, paths_image, labels, func_extract=None):
         self.paths_image = paths_image
+        self.labels = labels
         
         # Function to transform images into features
         self.transform = transforms.Compose([
@@ -26,7 +27,7 @@ class DataSet(torch.utils.data.Dataset):
         return self.paths_image.__len__()
 
     def __getitem__(self, idx):
-        return self.func_extract(self.paths_image[idx])
+        return self.func_extract(self.paths_image[idx]), self.labels[idx]
     
     def _func_extract(self, path_image):
         return self.transform(self._open_image(path_image))
