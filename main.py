@@ -8,14 +8,14 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 import argparse
 
-N_BATCH = 100
+N_BATCH = 30
 N_WORKER = 5
 N_EPOCH = 100
 
 # 分割数
-V = 400
+V = 32
 # バッグあたりのインスタンス数
-M = 50
+M = 10
 torch.manual_seed(3407)
 
 class MyAffine(nn.Module):
