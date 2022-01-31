@@ -12,7 +12,7 @@ N_BATCH = 100
 N_WORKER = 5
 N_EPOCH = 20
 
-V = 32
+V = 50
 torch.manual_seed(3407)
 
 class MyAffine(nn.Module):
@@ -45,12 +45,24 @@ class DataSet(torch.utils.data.Dataset):
         return self.feature_anomalous.size(0) - V + 1
 
     def __getitem__(self, idx):
-        normal_idx = np.random.randint(0, self.feature_normal.size(0) - V + 1)
-        return (            
-            torch.stack([self.feature_normal[normal_idx + num] for num in range(V)]),
-            torch.stack([self.feature_anomalous[idx + num] for num in range(V)]),
-            torch.stack([self.label_normal[normal_idx + num] for num in range(V)]),
-            torch.stack([self.label_anomalous[idx + num] for num in range(V)]),
+        
+        return (
+            torch.stack([
+                self.feature_normal[num:num+V].mean(dim=0)
+                for num in range(0, len(self.feature_normal), V)
+            ]),
+            torch.stack([
+                self.feature_anomalous[num:num+V].mean(dim=0)
+                for num in range(0, len(self.feature_anomalous), V)
+            ]),
+            torch.stack([
+                self.label_normal[num:num+V].max(dim=0)[0]
+                for num in range(0, len(self.label_normal), V)
+            ]),
+            torch.stack([
+                self.label_anomalous[num:num+V].max(dim=0)[0]
+                for num in range(0, len(self.label_anomalous), V)
+            ]),
         )
     
 
@@ -68,15 +80,13 @@ def train(model, loader, gpu=True, lambda1=8e-5, lambda2=8e-5, lambda3=0.01):
             features_anomalous = features_anomalous.cuda() if gpu else features_anomalous
             features_normal = features_normal.cuda() if gpu else features_normal
 
-            loss = 0.0
-            for idx in range(features_anomalous.size(1)):
-                predicts_anomalous = model(features_anomalous[:, idx])
-                predicts_normal = model(features_normal[:, idx])
+            predicts_anomalous = model(features_anomalous)
+            predicts_normal = model(features_normal)
 
-                loss += criterion(
-                    predicts_anomalous,
-                    predicts_normal,
-                    model)
+            loss = criterion(
+                predicts_anomalous,
+                predicts_normal,
+                model)
 
             optimizer.zero_grad()
             loss.backward()
