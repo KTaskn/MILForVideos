@@ -10,9 +10,12 @@ import argparse
 
 N_BATCH = 100
 N_WORKER = 5
-N_EPOCH = 20
+N_EPOCH = 100
 
-V = 50
+# 分割数
+V = 400
+# バッグあたりのインスタンス数
+M = 50
 torch.manual_seed(3407)
 
 class MyAffine(nn.Module):
@@ -42,27 +45,29 @@ class DataSet(torch.utils.data.Dataset):
         self.label_anomalous = label_anomalous
 
     def __len__(self):
-        return self.feature_anomalous.size(0) - V + 1
+        return N_BATCH
 
-    def __getitem__(self, idx):
-        
+    def __getitem__(self, _):
+        idx = np.random.randint(0, V - M)
+        n_normal = len(self.feature_normal) // V
+        n_anomalous = len(self.feature_anomalous) // V
         return (
             torch.stack([
-                self.feature_normal[num:num+V].mean(dim=0)
-                for num in range(0, len(self.feature_normal), V)
-            ]),
+                self.feature_anomalous[num:num+n_normal].mean(dim=0)
+                for num in range(0, len(self.feature_anomalous), n_normal)
+            ][idx:idx + M]),
             torch.stack([
-                self.feature_anomalous[num:num+V].mean(dim=0)
-                for num in range(0, len(self.feature_anomalous), V)
-            ]),
+                self.feature_anomalous[num:num+n_anomalous].mean(dim=0)
+                for num in range(0, len(self.feature_anomalous), n_anomalous)
+            ][idx:idx + M]),
             torch.stack([
-                self.label_normal[num:num+V].max(dim=0)[0]
-                for num in range(0, len(self.label_normal), V)
-            ]),
+                self.label_normal[num:num+n_normal].max(dim=0)[0]
+                for num in range(0, len(self.label_normal), n_normal)
+            ][idx:idx + M]),
             torch.stack([
-                self.label_anomalous[num:num+V].max(dim=0)[0]
-                for num in range(0, len(self.label_anomalous), V)
-            ]),
+                self.label_anomalous[num:num+n_anomalous].max(dim=0)[0]
+                for num in range(0, len(self.label_anomalous), n_anomalous)
+            ][idx:idx + M]),
         )
     
 
@@ -80,14 +85,16 @@ def train(model, loader, gpu=True, lambda1=8e-5, lambda2=8e-5, lambda3=0.01):
             features_anomalous = features_anomalous.cuda() if gpu else features_anomalous
             features_normal = features_normal.cuda() if gpu else features_normal
 
-            predicts_anomalous = model(features_anomalous)
-            predicts_normal = model(features_normal)
+            loss = 0.0
+            for idx in range(features_anomalous.size(1)):
+                predicts_anomalous = model(features_anomalous[:, idx])
+                predicts_normal = model(features_normal[:, idx])
 
-            loss = criterion(
-                predicts_anomalous,
-                predicts_normal,
-                model)
-
+                loss += criterion(
+                    predicts_anomalous,
+                    predicts_normal,
+                    model)
+                
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -146,18 +153,18 @@ if __name__ == "__main__":
         num_workers=N_WORKER)
 
     for epoch in range(N_EPOCH):
-        anom_auc = evaluate(model, dict_anomalous["features"], dict_anomalous["labels"], gpu=args.gpu)  
-        anom_auc = anom_auc if anom_auc > 0.5 else 1.0 - anom_auc     
-        
-        all_auc = evaluate(model, torch.cat([            
-            dict_normal["features"],
-            dict_anomalous["features"]
-        ]), torch.cat([            
-            dict_normal["labels"],
-            dict_anomalous["labels"]
-        ]), gpu=args.gpu)
-        all_auc = all_auc if all_auc > 0.5 else 1.0 - all_auc     
         model = train(model, trainloader, gpu=args.gpu, lambda1=args.lambda1, lambda2=args.lambda2, lambda3=args.lambda3)
+    anom_auc = evaluate(model, dict_anomalous["features"], dict_anomalous["labels"], gpu=args.gpu)  
+    anom_auc = anom_auc if anom_auc > 0.5 else 1.0 - anom_auc     
+    
+    all_auc = evaluate(model, torch.cat([            
+        dict_normal["features"],
+        dict_anomalous["features"]
+    ]), torch.cat([            
+        dict_normal["labels"],
+        dict_anomalous["labels"]
+    ]), gpu=args.gpu)
+    all_auc = all_auc if all_auc > 0.5 else 1.0 - all_auc     
     print(f"AUC score (anomalous): {anom_auc}")
     print(f"AUC score (normal & anomalous): {all_auc}") 
     print("")
