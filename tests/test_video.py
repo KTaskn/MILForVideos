@@ -50,7 +50,7 @@ class TmpModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
     
-    def __call__(self, x):
+    def forward(self, x):
         return x + 1
        
 
@@ -98,6 +98,28 @@ class TestExtractor:
         extractor = Extractor(path_list, labels, model, parser)
         video_feature = extractor.extract()
         assert type(video_feature) is VideoFeature
+        assert video_feature.path_list == path_list
+        assert video_feature.labels.tolist() == labels
+        assert video_feature.features.size() == torch.Size([3, 2])
+        assert (video_feature.features == torch.tensor([[2, 2], [3, 3], [4, 4]])).all()
+        
+        
+    def test_extractor_cuda(self):
+        path_list = ["1.jpg", "2.jpg", "3.jpg"]
+        labels = [1, 2, 3]
+        model = TmpModel()
+        
+        def parser(path):
+            if path == "1.jpg":
+                return torch.tensor([1, 1])
+            elif path == "2.jpg":
+                return torch.tensor([2, 2])
+            else:                
+                return torch.tensor([3, 3])                
+        
+        extractor = Extractor(path_list, labels, model, parser, cuda=True)
+        
+        video_feature = extractor.extract()
         assert video_feature.path_list == path_list
         assert video_feature.labels.tolist() == labels
         assert video_feature.features.size() == torch.Size([3, 2])

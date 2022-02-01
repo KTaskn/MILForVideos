@@ -27,10 +27,11 @@ class _DataSet(torch.utils.data.Dataset):
 
 class Extractor:
     def __init__(self, path_list: List[str], labels: List[int], model: torch.nn.Module, parser: Callable[[str], torch.Tensor],
-                 n_batches=5, n_workers=5):
+                 n_batches=5, n_workers=5, cuda=False):
         self.path_list = path_list
         self.labels = labels
-        self.model = model
+        self.cuda = cuda
+        self.model = model.cuda() if self.cuda else model
         self.parser = parser
         self.n_batches = n_batches
         self.n_workers = n_workers
@@ -43,8 +44,9 @@ class Extractor:
             batch_size=self.n_batches,
             num_workers=self.n_workers)
         Y = torch.cat([
-            self.model(batch)
+            self.model(batch.cuda() if self.cuda else batch)
             for batch in loader
         ])
+        Y = Y.cpu() if self.cuda else Y
         return VideoFeature(self.path_list, self.labels, Y)
     
