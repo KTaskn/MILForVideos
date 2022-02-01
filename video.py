@@ -31,22 +31,23 @@ class Extractor:
         self.path_list = path_list
         self.labels = labels
         self.cuda = cuda
-        self.model = model.cuda() if self.cuda else model
+        self.model = model.eval().cuda() if self.cuda else model.eval()
         self.parser = parser
         self.n_batches = n_batches
         self.n_workers = n_workers
     
     def extract(self):
-        dataset = _DataSet(self.path_list, self.parser)        
-        loader = torch.utils.data.DataLoader(
-            dataset,
-            shuffle=False,
-            batch_size=self.n_batches,
-            num_workers=self.n_workers)
-        Y = torch.cat([
-            self.model(batch.cuda() if self.cuda else batch)
-            for batch in loader
-        ])
-        Y = Y.cpu() if self.cuda else Y
-        return VideoFeature(self.path_list, self.labels, Y)
-    
+        with torch.no_grad():
+            dataset = _DataSet(self.path_list, self.parser)        
+            loader = torch.utils.data.DataLoader(
+                dataset,
+                shuffle=False,
+                batch_size=self.n_batches,
+                num_workers=self.n_workers)
+            Y = torch.cat([
+                self.model(batch.cuda() if self.cuda else batch)
+                for batch in loader
+            ])
+            Y = Y.cpu() if self.cuda else Y
+            return VideoFeature(self.path_list, self.labels, Y)
+        
