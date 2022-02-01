@@ -1,3 +1,4 @@
+import sys
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -5,6 +6,11 @@ from i3d import InceptionI3d
 from dataset import DataSet
 import argparse
 import pandas as pd
+from torchvision import transforms
+from PIL import Image
+
+sys.path.append("../..")
+from video import Extractor
 
 PRETRAINED_PATH = "./rgb_i3d_pretrained.pt"
 N_BATCHES = 100
@@ -22,27 +28,19 @@ class MyNet(nn.Module):
     def forward(self, video):
         video = video.transpose_(1, 2)
         return self.i3d(video).squeeze(2)
-    
-def extract(dataset, net, n_batches=N_BATCHES, n_workers=N_WORKERS, cuda=False):
-    net = net.cuda() if cuda else net
-    net.eval()
-    loader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=n_batches,
-        shuffle=False,
-        num_workers=n_workers)
 
-    outputs, labels = [], []
-    with torch.no_grad():
-        with tqdm(total=len(loader), unit="batch") as pbar:
-            for videos, b_labels in loader:
-                videos = videos.cuda() if cuda else videos
-                predict = net(videos)
-                predict = predict.cpu() if cuda else predict
-                outputs.append(predict)
-                labels.append(b_labels)
-                pbar.update(1)
-    return torch.cat(outputs), torch.cat(labels)
+
+def img2tensor(paths):
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    images = [
+        Image.open(path).convert("RGB")
+        for path in paths
+    ]
+    return transform(images)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -72,15 +70,9 @@ if __name__ == "__main__":
     net = MyNet()
     outputs, labels = [], []
     for grp, df_grp in df.groupby("grp"):
-        ds = DataSet(
-            df_grp["path"].tolist(),
-            df_grp["label"].tolist())
-
-        o, l = extract(ds, net, cuda=args.gpu)
-    
-        o = o.unsqueeze(1)
-        outputs.append(o)
-        labels.append(l)
+        extractor = Extractor(df_grp["path"].tolist(), df_grp["label"].tolist(), net, img2tensor, cuda=args.gpu)
+        features = extractor.extract()
+        outputs.append(features)
                 
     outputs = torch.cat(outputs)
     labels = torch.cat(labels)
