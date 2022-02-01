@@ -1,13 +1,16 @@
+import sys
 import torch
 import torch.nn as nn
-from tqdm import tqdm
-from dataset import DataSet
 import argparse
 import pandas as pd
+from tqdm import tqdm
+from PIL import Image
+from torchvision import transforms
+
+sys.path.append("../..")
+from video import Extractor
 
 RESNET_PRETRAINED = "./model_best.pth.tar"
-N_BATCHES = 1500
-N_WORKERS = 10
 
 class MyNet(nn.Module):
     def __init__(self):
@@ -15,28 +18,16 @@ class MyNet(nn.Module):
         self.resnet = torch.hub.load('pytorch/vision:v0.10.0', 'resnet152', pretrained=True)
 
     def forward(self, images):
-        return self.resnet(images)
+        return self.resnet(images).unsqueeze(1)
 
-def extract(dataset, net, n_batches=N_BATCHES, n_workers=N_WORKERS, cuda=False):
-    net = net.cuda() if cuda else net
-    net.eval()
-    loader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=n_batches,
-        shuffle=False,
-        num_workers=n_workers)
-
-    outputs, labels = [], []
-    with torch.no_grad():
-        with tqdm(total=len(loader), unit="batch") as pbar:
-            for images, b_labels in loader:
-                images = images.cuda() if cuda else images
-                predict = net(images)
-                predict = predict.cpu() if cuda else predict
-                outputs.append(predict)
-                labels.append(b_labels)
-                pbar.update(1)
-    return torch.cat(outputs), torch.cat(labels)
+def img2tensor(path):
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    image = Image.open(path).convert("RGB")
+    return transform(image)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -64,25 +55,11 @@ if __name__ == "__main__":
     
     # You can change the model here
     net = MyNet()
-    outputs, labels = [], []
-    for grp, df_grp in df.groupby("grp"):
-        ds = DataSet(
-            df_grp["path"].tolist(),
-            df_grp["label"].tolist())
-
-        o, l = extract(ds, net, cuda=args.gpu)
+    outputs = []
+    for grp, df_grp in tqdm(df.groupby("grp")):
+        extractor = Extractor(df_grp["path"].tolist(), df_grp["label"].tolist(), net, img2tensor, cuda=args.gpu)
+        features = extractor.extract()
+        outputs.append(features)
     
-        o = o.unsqueeze(1)
-        outputs.append(o)
-        labels.append(l)
-                
-    outputs = torch.cat(outputs)
-    labels = torch.cat(labels)
-        
-    print(f"features_size: {outputs.size()}")
-    print(f"labels_size: {labels.size()}")
-    
-    torch.save({
-        "features": outputs,
-        "labels": labels
-    }, args.output_path)
+    print("faetures_size: ", outputs[0].features.size())
+    torch.save(outputs, args.output_path)
