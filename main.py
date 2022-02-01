@@ -15,7 +15,7 @@ N_WORKER = 5
 N_EPOCH = 500
 
 # 分割数
-V = 32
+V = 1
 torch.manual_seed(3407)
 
 class MyAffine(nn.Module):

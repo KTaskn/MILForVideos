@@ -1,13 +1,12 @@
 import sys
 import torch
 import torch.nn as nn
-from tqdm import tqdm
 from i3d import InceptionI3d
-from dataset import DataSet
 import argparse
 import pandas as pd
 from torchvision import transforms
 from PIL import Image
+from tqdm import tqdm
 
 sys.path.append("../..")
 from video import Extractor
@@ -27,7 +26,7 @@ class MyNet(nn.Module):
 
     def forward(self, video):
         video = video.transpose_(1, 2)
-        return self.i3d(video).squeeze(2)
+        return self.i3d(video).squeeze(2).unsqueeze(1)
 
 
 def img2tensor(paths):
@@ -36,11 +35,10 @@ def img2tensor(paths):
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
-    images = [
-        Image.open(path).convert("RGB")
+    return torch.stack([
+        transform(Image.open(path).convert("RGB"))
         for path in paths
-    ]
-    return transform(images)
+    ])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -68,19 +66,17 @@ if __name__ == "__main__":
     
     # You can change the model here
     net = MyNet()
-    outputs, labels = [], []
-    for grp, df_grp in df.groupby("grp"):
-        extractor = Extractor(df_grp["path"].tolist(), df_grp["label"].tolist(), net, img2tensor, cuda=args.gpu)
+    outputs = []
+    for grp, df_grp in tqdm(df.groupby("grp")):
+        extractor = Extractor(
+            df_grp["path"].tolist(), 
+            df_grp["label"].tolist(), 
+            net, img2tensor, 
+            F=16,
+            aggregate=max,
+            cuda=args.gpu)
         features = extractor.extract()
         outputs.append(features)
-                
-    outputs = torch.cat(outputs)
-    labels = torch.cat(labels)
         
-    print(f"features_size: {outputs.size()}")
-    print(f"labels_size: {labels.size()}")
-    
-    torch.save({
-        "features": outputs,
-        "labels": labels
-    }, args.output_path)
+    print("faetures_size: ", outputs[0].features.size())
+    torch.save(outputs, args.output_path)
