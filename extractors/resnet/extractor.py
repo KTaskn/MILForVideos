@@ -19,7 +19,7 @@ class MyNet(nn.Module):
         self.resnet = torch.hub.load('pytorch/vision:v0.10.0', 'resnet152', pretrained=True)
 
     def forward(self, images):
-        return self.resnet(images)
+        return self.resnet(images).unsqueeze(1)
 
 def img2tensor(path):
     transform = transforms.Compose([
@@ -62,4 +62,5 @@ if __name__ == "__main__":
         features = extractor.extract()
         outputs.append(features)
     
+    print("faetures_size: ", outputs[0].features.size())
     torch.save(outputs, args.output_path)

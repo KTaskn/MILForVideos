@@ -7,15 +7,15 @@ from mil import MIL
 import numpy as np
 from sklearn.metrics import roc_auc_score
 import argparse
+from video import VideoFeature
+from typing import List
 
 N_BATCH = 30
 N_WORKER = 5
-N_EPOCH = 100
+N_EPOCH = 500
 
 # 分割数
 V = 32
-# バッグあたりのインスタンス数
-M = 10
 torch.manual_seed(3407)
 
 class MyAffine(nn.Module):
@@ -38,36 +38,29 @@ class MyAffine(nn.Module):
         return self.sigmoid(self.layer3(x))
     
 class DataSet(torch.utils.data.Dataset):
-    def __init__(self, feature_normal, feature_anomalous, label_normal, label_anomalous):
-        self.feature_normal = feature_normal
-        self.feature_anomalous = feature_anomalous
-        self.label_normal = label_normal
-        self.label_anomalous = label_anomalous
+    def __init__(self, video_features_normal: List[VideoFeature], video_features_anomalous: List[VideoFeature]):
+        self.video_features_normal = video_features_normal
+        self.video_features_anomalous = video_features_anomalous
 
     def __len__(self):
-        return N_BATCH
+        return len(self.video_features_anomalous)
 
-    def __getitem__(self, _):
-        idx = np.random.randint(0, V - M)
-        n_normal = len(self.feature_normal) // V
-        n_anomalous = len(self.feature_anomalous) // V
+    def __getitem__(self, idx):
+        normal_idx = np.random.randint(0, len(self.video_features_normal))
+        video_normal = self.video_features_normal[normal_idx]
+        video_anomalous = self.video_features_anomalous[idx]
+        
+        n_normal = video_normal.features.size(0) // V
+        n_anomalous = video_anomalous.features.size(0) // V
         return (
             torch.stack([
-                self.feature_anomalous[num:num+n_normal].mean(dim=0)
-                for num in range(0, len(self.feature_anomalous), n_normal)
-            ][idx:idx + M]),
+                video_normal.features[num:num+n_normal].mean(dim=0)
+                for num in range(0, video_normal.features.size(0), n_normal)
+            ]),
             torch.stack([
-                self.feature_anomalous[num:num+n_anomalous].mean(dim=0)
-                for num in range(0, len(self.feature_anomalous), n_anomalous)
-            ][idx:idx + M]),
-            torch.stack([
-                self.label_normal[num:num+n_normal].max(dim=0)[0]
-                for num in range(0, len(self.label_normal), n_normal)
-            ][idx:idx + M]),
-            torch.stack([
-                self.label_anomalous[num:num+n_anomalous].max(dim=0)[0]
-                for num in range(0, len(self.label_anomalous), n_anomalous)
-            ][idx:idx + M]),
+                video_anomalous.features[num:num+n_anomalous].mean(dim=0)
+                for num in range(0, video_anomalous.features.size(0), n_anomalous)
+            ]),
         )
     
 
@@ -81,14 +74,14 @@ def train(model, loader, gpu=True, lambda1=8e-5, lambda2=8e-5, lambda3=0.01):
     total = 0
     model.train()
     with tqdm(total=len(loader), unit="batch") as pbar:
-        for features_normal, features_anomalous, _, _ in loader:
+        for features_normal, features_anomalous in loader:
             features_anomalous = features_anomalous.cuda() if gpu else features_anomalous
             features_normal = features_normal.cuda() if gpu else features_normal
-
+            
             loss = 0.0
-            for idx in range(features_anomalous.size(1)):
-                predicts_anomalous = model(features_anomalous[:, idx])
-                predicts_normal = model(features_normal[:, idx])
+            for idx in range(features_anomalous.size(2)):
+                predicts_anomalous = model(features_anomalous[:, :, idx])
+                predicts_normal = model(features_normal[:, :, idx])
 
                 loss += criterion(
                     predicts_anomalous,
@@ -139,13 +132,13 @@ if __name__ == "__main__":
     print(f"gpu: {args.gpu}")
     
     
-    dict_normal = torch.load(args.normal_path)
-    dict_anomalous = torch.load(args.anomalous_path)
+    list_videos_normal: List[VideoFeature] = torch.load(args.normal_path)
+    list_videos_anomalous: List[VideoFeature] = torch.load(args.anomalous_path)
     
     # Fit size of feature
-    model = MyAffine(input_size=dict_normal["features"].size(-1))
+    model = MyAffine(input_size=list_videos_normal[0].features[0].size(-1))
 
-    dataset = DataSet(dict_normal["features"], dict_anomalous["features"], dict_normal["labels"], dict_anomalous["labels"])
+    dataset = DataSet(list_videos_normal, list_videos_anomalous)
     trainloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=N_BATCH,
@@ -154,15 +147,36 @@ if __name__ == "__main__":
 
     for epoch in range(N_EPOCH):
         model = train(model, trainloader, gpu=args.gpu, lambda1=args.lambda1, lambda2=args.lambda2, lambda3=args.lambda3)
-    anom_auc = evaluate(model, dict_anomalous["features"], dict_anomalous["labels"], gpu=args.gpu)  
+    anom_auc = evaluate(model, 
+                        torch.cat([
+                            video.features
+                            for video in list_videos_anomalous
+                        ]),
+                        torch.cat([
+                            video.labels
+                            for video in list_videos_anomalous
+                        ]),
+                        gpu=args.gpu)  
     anom_auc = anom_auc if anom_auc > 0.5 else 1.0 - anom_auc     
     
-    all_auc = evaluate(model, torch.cat([            
-        dict_normal["features"],
-        dict_anomalous["features"]
-    ]), torch.cat([            
-        dict_normal["labels"],
-        dict_anomalous["labels"]
+    all_auc = evaluate(model, torch.cat([
+        torch.cat([
+            video.features
+            for video in list_videos_normal
+        ]),           
+        torch.cat([
+            video.features
+            for video in list_videos_anomalous
+        ]),
+    ]), torch.cat([
+        torch.cat([
+            video.labels
+            for video in list_videos_normal
+        ]),           
+        torch.cat([
+            video.labels
+            for video in list_videos_anomalous
+        ]),
     ]), gpu=args.gpu)
     all_auc = all_auc if all_auc > 0.5 else 1.0 - all_auc     
     print(f"AUC score (anomalous): {anom_auc}")
