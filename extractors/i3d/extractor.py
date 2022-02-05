@@ -7,9 +7,7 @@ import pandas as pd
 from torchvision import transforms
 from PIL import Image
 from tqdm import tqdm
-
-sys.path.append("../..")
-from video import Extractor
+from milforvideo.video import Extractor
 
 PRETRAINED_PATH = "./rgb_i3d_pretrained.pt"
 N_BATCHES = 100

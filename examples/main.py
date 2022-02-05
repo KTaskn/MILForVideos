@@ -3,11 +3,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
-from mil import MIL
+from milforvideo.mil import MIL
 import numpy as np
 from sklearn.metrics import roc_auc_score
 import argparse
-from video import VideoFeature
+from milforvideo.video import VideoFeature
 from typing import List
 
 N_BATCH = 30
