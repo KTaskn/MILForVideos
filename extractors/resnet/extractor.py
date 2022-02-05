@@ -6,9 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 from PIL import Image
 from torchvision import transforms
-
-sys.path.append("../..")
-from video import Extractor
+from milforvideo.video import Extractor
 
 RESNET_PRETRAINED = "./model_best.pth.tar"
 
