@@ -103,11 +103,11 @@ if __name__ == "__main__":
     anom_auc = evaluate(model, 
                         torch.cat([
                             video.features
-                            for video in list_videos_anomalous
+                            for video in video_features_normal
                         ]),
                         torch.cat([
                             video.labels
-                            for video in list_videos_anomalous
+                            for video in video_features_anomalous
                         ]),
                         gpu=args.gpu)  
     anom_auc = anom_auc if anom_auc > 0.5 else 1.0 - anom_auc     
@@ -115,20 +115,20 @@ if __name__ == "__main__":
     all_auc = evaluate(model, torch.cat([
         torch.cat([
             video.features
-            for video in list_videos_normal
+            for video in video_features_normal
         ]),           
         torch.cat([
             video.features
-            for video in list_videos_anomalous
+            for video in video_features_anomalous
         ]),
     ]), torch.cat([
         torch.cat([
             video.labels
-            for video in list_videos_normal
+            for video in video_features_normal
         ]),           
         torch.cat([
             video.labels
-            for video in list_videos_anomalous
+            for video in video_features_anomalous
         ]),
     ]), gpu=args.gpu)
     all_auc = all_auc if all_auc > 0.5 else 1.0 - all_auc     
