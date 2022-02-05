@@ -87,6 +87,9 @@ class Extractor:
             Y = Y.cpu() if self.cuda else Y
             return VideoFeature(self.path_list, self.labels, Y)
     
+    def images(self):
+        return _DataSetForParsing(self.path_list, self.parser)
+    
     @classmethod
     def fold(cls, l_path, F):    
         return [
