@@ -13,7 +13,30 @@ class VideoFeature:
         self.path_list = path_list
         self.features = features
         self.labels = torch.tensor(labels)
-
+    
+    def compute_instances(self, V=32):        
+        if V > self.features.size(0):
+            raise ValueError(f"number of instances must be less than {self.features.size(0)}, but {V}")
+        
+        if self.features.size(0) % V == 0:
+            n_heads = self.features.size(0) // V
+            return torch.stack([
+                self.features[num:num+n_heads].mean(dim=0)
+                for num in range(0, self.features.size(0), n_heads)
+            ])
+        else:
+            n_heads = self.features.size(0) // (V - 1)
+            n_tail = self.features.size(0) % (V - 1)
+            
+            heads = torch.stack([
+                self.features[num:num+n_heads].mean(dim=0)
+                for num in range(0, self.features.size(0) - n_tail, n_heads)
+                if self.features[num:num+n_heads].size(0) == n_heads
+            ])
+            tail = self.features[-n_tail:].mean(dim=0).unsqueeze(0)
+            return torch.cat([
+                heads, tail
+            ])
 
 class _DataSetForParsing(torch.utils.data.Dataset):
     def __init__(self, path_list: List[str], parser: Callable[[str], torch.Tensor]):
@@ -81,21 +104,9 @@ class _VideoFeaturesDataSet(torch.utils.data.Dataset):
         video_normal = self.video_features_normal[normal_idx]
         video_anomalous = self.video_features_anomalous[idx]
         
-        n_normal = video_normal.features.size(0) // self.V
-        n_anomalous = video_anomalous.features.size(0) // self.V
-        
-        if n_normal == 0 or n_anomalous == 0:
-            raise ValueError(f"number of normal and anomalous videos must be greater than V = {self.V}, but normal = {video_normal.features.size(0)} and anomalous = {video_anomalous.features.size(0)}")
-        
         return (
-            torch.stack([
-                video_normal.features[num:num+n_normal].mean(dim=0)
-                for num in range(0, video_normal.features.size(0), n_normal)
-            ]),
-            torch.stack([
-                video_anomalous.features[num:num+n_anomalous].mean(dim=0)
-                for num in range(0, video_anomalous.features.size(0), n_anomalous)
-            ]),
+            video_normal.compute_instances(self.V),
+            video_anomalous.compute_instances(self.V),
         )
 
 def generate_dataloader(

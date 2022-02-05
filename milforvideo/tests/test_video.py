@@ -45,6 +45,94 @@ class TestVideoFeature:
         features = torch.rand([3, 5])
         with pytest.raises(Exception):
             VideoFeature(path_list, features)
+    
+    
+    def test_compute_instances_default_Vで分割する(self):
+        V = 32
+        TMP = 10
+        N = TMP * V
+        path_list = list(range(N))
+        labels = list(range(N))
+        features = torch.rand([N, 10, 1000])
+        vf = VideoFeature(path_list, labels, features)
+        # defaultは32分割
+        actual = vf.compute_instances()
+        assert actual.size() == torch.Size([V, 10, 1000])
+        for idx in range(V):
+            assert (features[idx * TMP:(idx + 1) * TMP].mean(dim=0) == actual[idx]).all()
+        
+        N = TMP * (V - 1) + 5
+        path_list = list(range(N))
+        labels = list(range(N))
+        features = torch.rand([N, 10, 1000])
+        vf = VideoFeature(path_list, labels, features)
+        # defaultは32分割
+        actual = vf.compute_instances()
+        assert actual.size() == torch.Size([V, 10, 1000])
+        assert (features[-5:].mean(dim=0) == actual[-1]).all()
+        
+        
+        N = TMP * (V - 1) + 30
+        path_list = list(range(N))
+        labels = list(range(N))
+        features = torch.rand([N, 10, 1024])
+        vf = VideoFeature(path_list, labels, features)
+        # defaultは32分割
+        actual = vf.compute_instances()
+        assert actual.size() == torch.Size([V, 10, 1024])
+        
+    
+    def test_compute_instances_Vを変更しで分割する(self):
+        TMP = 10
+        V = 5
+        N = TMP * V
+        path_list = list(range(N))
+        labels = list(range(N))
+        features = torch.rand([N, 10, 1000])
+        vf = VideoFeature(path_list, labels, features)
+        actual = vf.compute_instances(V=V)
+        assert actual.size() == torch.Size([V, 10, 1000])
+        for idx in range(5):
+            assert (features[idx * TMP:(idx + 1) * TMP].mean(dim=0) == actual[idx]).all()
+        
+        N = TMP * (V - 1) + 2
+        path_list = list(range(N))
+        labels = list(range(N))
+        features = torch.rand([N, 10, 1000])
+        vf = VideoFeature(path_list, labels, features)
+        # defaultは32分割
+        actual = vf.compute_instances(V=5)
+        assert actual.size() == torch.Size([V, 10, 1000])
+        assert (features[-2:].mean(dim=0) == actual[-1]).all()
+        
+        N = 1001
+        path_list = list(range(N))
+        labels = list(range(N))
+        features = torch.rand([N, 10, 1024])
+        vf = VideoFeature(path_list, labels, features)
+        # defaultは32分割
+        actual = vf.compute_instances(V=V)
+        assert actual.size() == torch.Size([V, 10, 1024])    
+    
+    def test_compute_instances_Vより数が少ない(self):
+        N = 99
+        V = 100
+        path_list = list(range(N))
+        labels = list(range(N))
+        features = torch.rand([N, 10, 1000])
+        vf = VideoFeature(path_list, labels, features)
+        with pytest.raises(Exception):
+            vf.compute_instances(V=V)
+        
+        N = 100
+        V = 100
+        path_list = list(range(N))
+        labels = list(range(N))
+        features = torch.rand([N, 10, 1000])
+        vf = VideoFeature(path_list, labels, features)
+        vf.compute_instances(V=V)
+        
+
 
 class TmpModel(torch.nn.Module):
     def __init__(self):
