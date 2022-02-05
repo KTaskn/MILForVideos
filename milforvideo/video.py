@@ -37,6 +37,10 @@ class VideoFeature:
             return torch.cat([
                 heads, tail
             ])
+    
+    @classmethod
+    def concat(cls, a, b):
+        return cls(a.path_list + b.path_list, a.labels.tolist() + b.labels.tolist(), torch.cat([a.features, b.features]))
 
 class _DataSetForParsing(torch.utils.data.Dataset):
     def __init__(self, path_list: List[str], parser: Callable[[str], torch.Tensor]):

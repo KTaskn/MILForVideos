@@ -3,6 +3,24 @@ import torch
 import pytest
 
 class TestVideoFeature:
+    def test_concat(self):        
+        a_path_list = [1, 2, 3]
+        a_labels = [1, 2, 3]
+        a_features = torch.rand([3, 5])
+        a = VideoFeature(a_path_list, a_labels, a_features)
+        
+        b_path_list = [4, 5, 6]
+        b_labels = [4, 5, 6]
+        b_features = torch.rand([3, 5])
+        b = VideoFeature(b_path_list, b_labels, b_features)
+        c = VideoFeature.concat(a, b)
+        
+        assert c.path_list == a_path_list + b_path_list
+        assert type(c.labels) is torch.Tensor
+        assert c.labels.tolist() == a_labels + b_labels
+        assert type(c.features) is torch.Tensor
+        assert (c.features == torch.cat([a_features, b_features])).all().all()
+        
     def test_init(self):
         path_list = []
         labels = []
