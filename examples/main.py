@@ -13,7 +13,9 @@ from typing import List
 
 N_BATCH = 30
 N_WORKER = 5
-N_EPOCH = 500
+N_EPOCH = 10000
+
+V = 13
 
 torch.manual_seed(3407)
 
@@ -51,7 +53,7 @@ def train(model, loader, gpu=True, lambda1=8e-5, lambda2=8e-5, lambda3=0.01):
 
             pbar.set_postfix({"loss":running_loss})
             pbar.update(1)
-    return model.cpu() if gpu else model
+    return model.cpu() if gpu else model, running_loss
     
 def evaluate(model, features, labels, gpu=True):
     model = model.cuda() if gpu else model
@@ -96,42 +98,41 @@ if __name__ == "__main__":
         video_features_anomalous,
         batch_size=N_BATCH,
         shuffle=True,
-        num_workers=N_WORKER)
+        num_workers=N_WORKER,
+        V=1)
 
     for epoch in range(N_EPOCH):
-        model = train(model, trainloader, gpu=args.gpu, lambda1=args.lambda1, lambda2=args.lambda2, lambda3=args.lambda3)
-    anom_auc = evaluate(model, 
-                        torch.cat([
-                            video.features
-                            for video in video_features_normal
-                        ]),
-                        torch.cat([
-                            video.labels
-                            for video in video_features_anomalous
-                        ]),
-                        gpu=args.gpu)  
-    anom_auc = anom_auc if anom_auc > 0.5 else 1.0 - anom_auc     
-    
-    all_auc = evaluate(model, torch.cat([
-        torch.cat([
-            video.features
-            for video in video_features_normal
-        ]),           
-        torch.cat([
-            video.features
-            for video in video_features_anomalous
-        ]),
-    ]), torch.cat([
-        torch.cat([
-            video.labels
-            for video in video_features_normal
-        ]),           
-        torch.cat([
-            video.labels
-            for video in video_features_anomalous
-        ]),
-    ]), gpu=args.gpu)
-    all_auc = all_auc if all_auc > 0.5 else 1.0 - all_auc     
-    print(f"AUC score (anomalous): {anom_auc}")
-    print(f"AUC score (normal & anomalous): {all_auc}") 
-    print("")
+        model, running_loss = train(model, trainloader, gpu=args.gpu, lambda1=args.lambda1, lambda2=args.lambda2, lambda3=args.lambda3)
+        anom_auc = evaluate(model, 
+                            torch.cat([
+                                video.features
+                                for video in video_features_anomalous
+                            ]),
+                            torch.cat([
+                                video.labels
+                                for video in video_features_anomalous
+                            ]),
+                            gpu=args.gpu)  
+        anom_auc = anom_auc if anom_auc > 0.5 else 1.0 - anom_auc     
+        
+        all_auc = evaluate(model, torch.cat([
+            torch.cat([
+                video.features
+                for video in video_features_normal
+            ]),           
+            torch.cat([
+                video.features
+                for video in video_features_anomalous
+            ]),
+        ]), torch.cat([
+            torch.cat([
+                video.labels
+                for video in video_features_normal
+            ]),           
+            torch.cat([
+                video.labels
+                for video in video_features_anomalous
+            ]),
+        ]), gpu=args.gpu)
+        all_auc = all_auc if all_auc > 0.5 else 1.0 - all_auc     
+        print(f"{running_loss},{anom_auc},{all_auc}")
