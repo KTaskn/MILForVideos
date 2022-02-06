@@ -3,6 +3,7 @@ datasets
 *.pt
 *.tar
 *.sh
+*.txt
 
 build
 milforvideo.egg-info
