@@ -13,7 +13,7 @@ from typing import List
 
 N_BATCH = 30
 N_WORKER = 5
-N_EPOCH = 10000
+N_EPOCH = 3000
 
 V = 32
 
@@ -29,14 +29,18 @@ def train(model, loader, gpu=True, lambda1=8e-5, lambda2=8e-5, lambda3=0.01):
     total = 0
     model.train()
     with tqdm(total=len(loader), unit="batch") as pbar:
-        for features_normal, features_anomalous in loader:
-            features_anomalous = features_anomalous.cuda() if gpu else features_anomalous
+        for features_normal, features_anomalous, labels_normal, labels_anomalous in loader:
             features_normal = features_normal.cuda() if gpu else features_normal
+            features_anomalous = features_anomalous.cuda() if gpu else features_anomalous
+            labels_normal = labels_normal.cuda() if gpu else labels_normal
+            labels_anomalous = labels_anomalous.cuda() if gpu else labels_anomalous
             
             loss = 0.0
             for idx in range(features_anomalous.size(2)):
-                predicts_anomalous = model(features_anomalous[:, :, idx])
-                predicts_normal = model(features_normal[:, :, idx])
+                filter_ = labels_anomalous[:, idx] > -1
+                # analysing on each cluster
+                predicts_anomalous = model(features_anomalous[filter_, :, idx])
+                predicts_normal = model(features_normal[filter_, :, idx])
 
                 loss += criterion(
                     predicts_anomalous,
@@ -65,7 +69,7 @@ def evaluate(model, features, labels, gpu=True):
         labels = labels.cpu().numpy() if gpu else labels.numpy()
     predicts = predicts.max(axis=0)
     
-    return roc_auc_score(labels, predicts)
+    return roc_auc_score(labels[:, 0], predicts)
 
 
 if __name__ == "__main__":    
@@ -89,7 +93,7 @@ if __name__ == "__main__":
     
     video_features_normal: List[VideoFeature] = torch.load(args.normal_path)
     video_features_anomalous: List[VideoFeature] = torch.load(args.anomalous_path)
-    
+        
     # Fit size of feature
     model = FCL(input_size=video_features_normal[0].features[0].size(-1))
 
