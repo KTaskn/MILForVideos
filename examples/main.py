@@ -15,8 +15,6 @@ N_BATCH = 30
 N_WORKER = 5
 N_EPOCH = 3000
 
-V = 32
-
 torch.manual_seed(3407)
 
 def train(model, loader, gpu=True, lambda1=8e-5, lambda2=8e-5, lambda3=0.01):
@@ -79,6 +77,7 @@ if __name__ == "__main__":
     parser.add_argument("lambda1", type=float)
     parser.add_argument("lambda2", type=float)
     parser.add_argument("lambda3", type=float)
+    parser.add_argument("V", type=int)
     parser.add_argument("--gpu", action='store_true', help="Use GPU")
     
     args = parser.parse_args()    
@@ -87,6 +86,7 @@ if __name__ == "__main__":
     print(f"lambda1: {args.lambda1}")
     print(f"lambda2: {args.lambda2}")
     print(f"lambda3: {args.lambda3}")
+    print(f"V: {args.V}")
     print(f"epoch: {N_EPOCH}")
     print(f"gpu: {args.gpu}")
     
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         batch_size=N_BATCH,
         shuffle=True,
         num_workers=N_WORKER,
-        V=1)
+        V=args.V)
 
     for epoch in range(N_EPOCH):
         model, running_loss = train(model, trainloader, gpu=args.gpu, lambda1=args.lambda1, lambda2=args.lambda2, lambda3=args.lambda3)
