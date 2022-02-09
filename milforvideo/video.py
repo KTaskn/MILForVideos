@@ -80,8 +80,12 @@ class Extractor:
                 shuffle=False,
                 batch_size=self.n_batches,
                 num_workers=self.n_workers)
+            
             Y = torch.cat([
-                self.model(batch.cuda() if self.cuda else batch)
+                torch.cat([
+                    self.model(batch[:, idx].cuda() if self.cuda else batch[:, idx])
+                    for idx in range(batch.size(1))
+                ], axis=1)
                 for batch in loader
             ])
             Y = Y.cpu() if self.cuda else Y

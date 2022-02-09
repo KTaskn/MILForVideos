@@ -15,7 +15,7 @@ N_BATCH = 30
 N_WORKER = 5
 N_EPOCH = 10000
 
-V = 13
+V = 32
 
 torch.manual_seed(3407)
 
