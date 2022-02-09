@@ -34,8 +34,7 @@ def img2tensor(paths):
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     return torch.stack([
-        transform(Image.open(path).convert("RGB"))
-        for path in paths
+        torch.stack([transform(Image.open(path).convert("RGB")) for path in paths])
     ])
 
 if __name__ == "__main__":

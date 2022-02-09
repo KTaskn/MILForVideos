@@ -17,25 +17,37 @@ class VideoFeature:
     def compute_instances(self, V=32):        
         if V > self.features.size(0):
             raise ValueError(f"number of instances must be less than {self.features.size(0)}, but {V}")
-        
         if self.features.size(0) % V == 0:
             n_heads = self.features.size(0) // V
+            # label は max をとって、-1 なら（すべて-1なら）、後段の処理で無視する
             return torch.stack([
                 self.features[num:num+n_heads].mean(dim=0)
                 for num in range(0, self.features.size(0), n_heads)
+            ]), torch.cat([
+                self.labels[num:num+n_heads].max(dim=0)[0]
+                for num in range(0, self.labels.size(0), n_heads)
             ])
         else:
             n_heads = self.features.size(0) // (V - 1)
             n_tail = self.features.size(0) % (V - 1)
             
-            heads = torch.stack([
+            feature_heads = torch.stack([
                 self.features[num:num+n_heads].mean(dim=0)
                 for num in range(0, self.features.size(0) - n_tail, n_heads)
                 if self.features[num:num+n_heads].size(0) == n_heads
             ])
-            tail = self.features[-n_tail:].mean(dim=0).unsqueeze(0)
+            feature_tail = self.features[-n_tail:].mean(dim=0).unsqueeze(0)
+                        
+            label_heads = torch.cat([
+                self.labels[num:num+n_heads].max(dim=0)[0]
+                for num in range(0, self.labels.size(0) - n_tail, n_heads)
+                if self.features[num:num+n_heads].size(0) == n_heads
+            ])
+            label_tail = self.labels[-n_tail:].max(dim=0)[0].unsqueeze(0)
             return torch.cat([
-                heads, tail
+                feature_heads, feature_tail
+            ]), torch.cat([
+                label_heads, label_tail
             ])
     
     @classmethod
@@ -59,7 +71,10 @@ class Extractor:
                  n_batches=5, n_workers=5, cuda=False):        
         if F is None:
             self.path_list = path_list
-            self.labels = labels
+            self.labels = [
+                aggregate(row) if aggregate else row
+                for row in labels
+            ]
         else:
             self.path_list = self.fold(path_list, F)
             self.labels = [
@@ -80,12 +95,19 @@ class Extractor:
                 shuffle=False,
                 batch_size=self.n_batches,
                 num_workers=self.n_workers)
+            
             Y = torch.cat([
-                self.model(batch.cuda() if self.cuda else batch)
+                torch.cat([
+                    self.model(batch[:, idx].cuda() if self.cuda else batch[:, idx])
+                    for idx in range(batch.size(1))
+                ], axis=1)
                 for batch in loader
             ])
             Y = Y.cpu() if self.cuda else Y
             return VideoFeature(self.path_list, self.labels, Y)
+    
+    def images(self):
+        return _DataSetForParsing(self.path_list, self.parser)
     
     @classmethod
     def fold(cls, l_path, F):    
@@ -108,10 +130,10 @@ class _VideoFeaturesDataSet(torch.utils.data.Dataset):
         video_normal = self.video_features_normal[normal_idx]
         video_anomalous = self.video_features_anomalous[idx]
         
-        return (
-            video_normal.compute_instances(self.V),
-            video_anomalous.compute_instances(self.V),
-        )
+        features_normal, labels_normal = video_normal.compute_instances(self.V)
+        features_anonmalous, labels_anomalous = video_anomalous.compute_instances(self.V)
+        
+        return features_normal, features_anonmalous, labels_normal, labels_anomalous
 
 def generate_dataloader(
     video_features_normal: List[VideoFeature], 
