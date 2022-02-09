@@ -23,10 +23,10 @@ class VideoFeature:
             return torch.stack([
                 self.features[num:num+n_heads].mean(dim=0)
                 for num in range(0, self.features.size(0), n_heads)
-            ]), torch.cat([
+            ]), torch.stack([
                 self.labels[num:num+n_heads].max(dim=0)[0]
                 for num in range(0, self.labels.size(0), n_heads)
-            ])
+            ], axis=0)
         else:
             n_heads = self.features.size(0) // (V - 1)
             n_tail = self.features.size(0) % (V - 1)
@@ -38,12 +38,13 @@ class VideoFeature:
             ])
             feature_tail = self.features[-n_tail:].mean(dim=0).unsqueeze(0)
                         
-            label_heads = torch.cat([
+            label_heads = torch.stack([
                 self.labels[num:num+n_heads].max(dim=0)[0]
                 for num in range(0, self.labels.size(0) - n_tail, n_heads)
                 if self.features[num:num+n_heads].size(0) == n_heads
-            ])
+            ], axis=0)
             label_tail = self.labels[-n_tail:].max(dim=0)[0].unsqueeze(0)
+            
             return torch.cat([
                 feature_heads, feature_tail
             ]), torch.cat([

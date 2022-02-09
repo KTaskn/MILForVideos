@@ -55,7 +55,7 @@ if __name__ == "__main__":
     net = MyNet()
     outputs = []
     for grp, df_grp in tqdm(df.groupby("grp")):
-        extractor = Extractor(df_grp["path"].tolist(), df_grp["label"].tolist(), net, img2tensor, cuda=args.gpu)
+        extractor = Extractor(df_grp["path"].tolist(), df_grp["label"].tolist(), net, img2tensor, aggregate=lambda label: [label], cuda=args.gpu)
         features = extractor.extract()
         outputs.append(features)
     

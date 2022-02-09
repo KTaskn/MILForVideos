@@ -70,7 +70,7 @@ if __name__ == "__main__":
             df_grp["label"].tolist(), 
             net, img2tensor, 
             F=16,
-            aggregate=max,
+            aggregate=lambda labels: [max(labels)],
             cuda=args.gpu)
         features = extractor.extract()
         outputs.append(features)
