@@ -27,7 +27,7 @@ class MyNet(nn.Module):
         return self.i3d(video).squeeze(2).unsqueeze(1)
 
 
-def img2tensor(paths):
+def img2tensor(paths, idx):
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),

@@ -13,7 +13,7 @@ from typing import List
 
 N_BATCH = 30
 N_WORKER = 5
-N_EPOCH = 5000
+N_EPOCH = 20000
 
 torch.manual_seed(3407)
 

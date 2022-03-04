@@ -18,7 +18,7 @@ class MyNet(nn.Module):
     def forward(self, images):
         return self.resnet(images).unsqueeze(1)
 
-def img2tensor(path):
+def img2tensor(path, idx):
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
