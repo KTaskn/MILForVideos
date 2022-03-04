@@ -56,27 +56,35 @@ class VideoFeature:
         return cls(a.path_list + b.path_list, a.labels.tolist() + b.labels.tolist(), torch.cat([a.features, b.features]))
 
 class _DataSetForParsing(torch.utils.data.Dataset):
-    def __init__(self, path_list: List[str], parser: Callable[[str], torch.Tensor]):
+    def __init__(self, path_list: List[str], idx_list: List[str], parser: Callable[[List[str], int], torch.Tensor]):
         self.path_list = path_list
+        self.idx_list = idx_list
         self.parser = parser
         
     def __len__(self):
         return len(self.path_list)
 
-    def __getitem__(self, idx):
-        return self.parser(self.path_list[idx])
+    def __getitem__(self, idx: int):
+        return self.parser(
+            self.path_list[idx],
+            self.idx_list[idx])
 
 class Extractor:
-    def __init__(self, path_list: List[str], labels: List[int], model: torch.nn.Module, parser: Callable[[str], torch.Tensor],
+    def __init__(self, path_list: List[str], labels: List[int], model: torch.nn.Module, parser: Callable[[List[str], int], torch.Tensor],
                  F=None, aggregate=None,
                  n_batches=5, n_workers=5, cuda=False):        
         if F is None:
+            self.idx_list = list(range(len(path_list)))
             self.path_list = path_list
             self.labels = [
                 aggregate(row) if aggregate else row
                 for row in labels
             ]
         else:
+            self.idx_list = [
+                row[0]
+                for row in self.fold(list(range(len(path_list))), F)
+            ]
             self.path_list = self.fold(path_list, F)
             self.labels = [
                 aggregate(row) if aggregate else row
@@ -90,7 +98,7 @@ class Extractor:
     
     def extract(self):
         with torch.no_grad():
-            dataset = _DataSetForParsing(self.path_list, self.parser)        
+            dataset = _DataSetForParsing(self.path_list, self.idx_list, self.parser)        
             loader = torch.utils.data.DataLoader(
                 dataset,
                 shuffle=False,
@@ -108,7 +116,7 @@ class Extractor:
             return VideoFeature(self.path_list, self.labels, Y)
     
     def images(self):
-        return _DataSetForParsing(self.path_list, self.parser)
+        return _DataSetForParsing(self.path_list, self.idx_list, self.parser)
     
     @classmethod
     def fold(cls, l_path, F):    
