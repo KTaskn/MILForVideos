@@ -19,7 +19,7 @@ class MyNet(nn.Module):
         return self.resnet(images).unsqueeze(1)
 
 def img2tensor(path, idx):
-    return [Image.open(path).convert("RGB")]
+    return [[Image.open(path).convert("RGB")]]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

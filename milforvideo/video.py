@@ -101,6 +101,7 @@ class Extractor:
         n_workers=5,
         cuda=False
     ):
+        self.F = F
         if F is None:
             self.idx_list = list(range(len(path_list)))
             self.path_list = path_list
@@ -134,13 +135,22 @@ class Extractor:
                 num_workers=self.n_workers)
             
             l_batch, l_images = [], []
-            for batch, batch_images in loader:                
-                l_batch.append(
-                    torch.cat([
-                        self.model(batch[:, idx].cuda() if self.cuda else batch[:, idx])
-                        for idx in range(batch.size(1))
-                    ], axis=1)
-                )
+            for batch, batch_images in loader:
+                if self.F is None:           
+                    l_batch.append(
+                        torch.cat([
+                            self.model(batch[:, idx, 0].cuda() if self.cuda else batch[:, idx, 0])
+                            for idx in range(batch.size(1))
+                        ], axis=1)
+                    )
+                else:
+                    l_batch.append(
+                        torch.cat([
+                            self.model(batch[:, idx].cuda() if self.cuda else batch[:, idx])
+                            for idx in range(batch.size(1))
+                        ], axis=1)
+                    )
+                    
 
                 if is_getable_images:
                     l_images.append([
