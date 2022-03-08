@@ -13,7 +13,7 @@ from typing import List
 
 N_BATCH = 30
 N_WORKER = 5
-N_EPOCH = 3000
+N_EPOCH = 20000
 
 torch.manual_seed(3407)
 
@@ -35,7 +35,7 @@ def train(model, loader, gpu=True, lambda1=8e-5, lambda2=8e-5, lambda3=0.01):
             
             loss = 0.0
             for idx in range(features_anomalous.size(2)):
-                filter_ = labels_anomalous[:, idx] > -1
+                filter_ = (labels_anomalous > -1).any(dim=1).any(dim=1)
                 # analysing on each cluster
                 predicts_anomalous = model(features_anomalous[filter_, :, idx])
                 predicts_normal = model(features_normal[filter_, :, idx])

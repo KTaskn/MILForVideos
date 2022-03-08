@@ -18,25 +18,21 @@ class MyNet(nn.Module):
     def forward(self, images):
         return self.resnet(images).unsqueeze(1)
 
-def img2tensor(path):
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    image = Image.open(path).convert("RGB")
-    return torch.stack([transform(image)])
+def img2tensor(path, idx):
+    return [[Image.open(path).convert("RGB")]]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("pathlist", help="Path to the dataset", type=str)
     parser.add_argument("output_path", help="Path to the output file", type=str)
     parser.add_argument("--gpu", action='store_true', help="Use GPU")
+    parser.add_argument("--is_getable_images", action='store_true', help="Save Images")
     
     args = parser.parse_args()
     print(f"pathlist: {args.pathlist}")
     print(f"output_path: {args.output_path}")
     print(f"gpu: {args.gpu}")
+    print(f"is_getable_images: {args.is_getable_images}")
     
     # Get the image path and label from a input file
     with open(args.pathlist) as f:
@@ -55,8 +51,8 @@ if __name__ == "__main__":
     net = MyNet()
     outputs = []
     for grp, df_grp in tqdm(df.groupby("grp")):
-        extractor = Extractor(df_grp["path"].tolist(), df_grp["label"].tolist(), net, img2tensor, cuda=args.gpu)
-        features = extractor.extract()
+        extractor = Extractor(df_grp["path"].tolist(), df_grp["label"].tolist(), net, img2tensor, aggregate=lambda label: [label], cuda=args.gpu)
+        features = extractor.extract(is_getable_images=args.is_getable_images)
         outputs.append(features)
     
     print("faetures_size: ", outputs[0].features.size())

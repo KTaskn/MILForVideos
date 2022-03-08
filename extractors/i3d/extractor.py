@@ -27,26 +27,23 @@ class MyNet(nn.Module):
         return self.i3d(video).squeeze(2).unsqueeze(1)
 
 
-def img2tensor(paths):
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    return torch.stack([
-        torch.stack([transform(Image.open(path).convert("RGB")) for path in paths])
-    ])
+def img2tensor(paths, idx):
+    return [
+        [Image.open(path).convert("RGB") for path in paths]
+    ]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("pathlist", help="Path to the dataset", type=str)
     parser.add_argument("output_path", help="Path to the output file", type=str)
     parser.add_argument("--gpu", action='store_true', help="Use GPU")
+    parser.add_argument("--is_getable_images", action='store_true', help="Save Images")
     
     args = parser.parse_args()
     print(f"pathlist: {args.pathlist}")
     print(f"output_path: {args.output_path}")
     print(f"gpu: {args.gpu}")
+    print(f"is_getable_images: {args.is_getable_images}")
     
     # Get the image path and label from a input file
     with open(args.pathlist) as f:
@@ -70,9 +67,9 @@ if __name__ == "__main__":
             df_grp["label"].tolist(), 
             net, img2tensor, 
             F=16,
-            aggregate=max,
+            aggregate=lambda labels: [max(labels)],
             cuda=args.gpu)
-        features = extractor.extract()
+        features = extractor.extract(is_getable_images=args.is_getable_images)
         outputs.append(features)
         
     print("faetures_size: ", outputs[0].features.size())
