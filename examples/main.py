@@ -13,7 +13,9 @@ from typing import List
 
 N_BATCH = 30
 N_WORKER = 5
-N_EPOCH = 20000
+N_EPOCH = 5000
+
+N_EPOCH_SAVE_MODEL = 500
 
 torch.manual_seed(3407)
 
@@ -65,9 +67,10 @@ def evaluate(model, features, labels, gpu=True):
         predicts = torch.stack([model(features[:, idx]) for idx in range(features.size(1))]).squeeze(2)
         predicts = predicts.cpu().numpy() if gpu else predicts.numpy()
         labels = labels.cpu().numpy() if gpu else labels.numpy()
-    predicts = predicts.max(axis=0)
+    labels_predict = predicts.max(axis=0)
+    labels_predict_r = 1.0 - predicts.min(axis=0)
     
-    return roc_auc_score(labels[:, 0], predicts)
+    return roc_auc_score(labels[:, 0], labels_predict), roc_auc_score(labels[:, 0], labels_predict_r)
 
 
 if __name__ == "__main__":    
@@ -78,6 +81,7 @@ if __name__ == "__main__":
     parser.add_argument("lambda2", type=float)
     parser.add_argument("lambda3", type=float)
     parser.add_argument("V", type=int)
+    parser.add_argument("model_path", type=str, help="Model path")
     parser.add_argument("--gpu", action='store_true', help="Use GPU")
     
     args = parser.parse_args()    
@@ -87,6 +91,7 @@ if __name__ == "__main__":
     print(f"lambda2: {args.lambda2}")
     print(f"lambda3: {args.lambda3}")
     print(f"V: {args.V}")
+    print(f"model_path: {args.model_path}")
     print(f"epoch: {N_EPOCH}")
     print(f"gpu: {args.gpu}")
     
@@ -105,9 +110,11 @@ if __name__ == "__main__":
         num_workers=N_WORKER,
         V=args.V)
 
+    saving_models = {}
+
     for epoch in range(N_EPOCH):
         model, running_loss = train(model, trainloader, gpu=args.gpu, lambda1=args.lambda1, lambda2=args.lambda2, lambda3=args.lambda3)
-        anom_auc = evaluate(model, 
+        anom_auc, anom_auc_r = evaluate(model, 
                             torch.cat([
                                 video.features
                                 for video in video_features_anomalous
@@ -117,9 +124,9 @@ if __name__ == "__main__":
                                 for video in video_features_anomalous
                             ]),
                             gpu=args.gpu)  
-        anom_auc = anom_auc if anom_auc > 0.5 else 1.0 - anom_auc     
+        anom_auc = anom_auc if anom_auc > anom_auc_r else anom_auc_r
         
-        all_auc = evaluate(model, torch.cat([
+        all_auc, all_auc_r = evaluate(model, torch.cat([
             torch.cat([
                 video.features
                 for video in video_features_normal
@@ -138,5 +145,11 @@ if __name__ == "__main__":
                 for video in video_features_anomalous
             ]),
         ]), gpu=args.gpu)
-        all_auc = all_auc if all_auc > 0.5 else 1.0 - all_auc     
+        all_auc = all_auc if all_auc > all_auc_r else all_auc_r
         print(f"{running_loss},{anom_auc},{all_auc}")
+        
+        if epoch % N_EPOCH_SAVE_MODEL == 0:
+            saving_models[epoch] = model.state_dict()
+        
+    saving_models[epoch] = model.state_dict()
+    torch.save(saving_models, args.model_path)
